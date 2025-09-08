@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<!-- saved from url=(0031)http://127.0.0.1:3000/test.html -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><script type="text/javascript" src="./CTF Login Challenge_files/___vscode_livepreview_injected_script"></script>
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CTF Login Challenge</title>
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap');
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+
+    body {
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+    }
+
+    .login-container {
+        background: white;
+        padding: 40px 30px;
+        border-radius: 20px;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+        width: 350px;
+        text-align: center;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .login-container h1 {
+        font-size: 28px;
+        margin-bottom: 30px;
+        color: #4f46e5;
+    }
+
+    .login-container input {
+        width: 100%;
+        padding: 12px 15px;
+        margin: 10px 0;
+        border-radius: 10px;
+        border: 1px solid #ddd;
+        outline: none;
+        transition: 0.3s;
+    }
+
+    .login-container input:focus {
+        border-color: #4f46e5;
+        box-shadow: 0 0 8px rgba(79,70,229,0.3);
+    }
+
+    .login-container button {
+        width: 100%;
+        padding: 12px;
+        margin-top: 15px;
+        border: none;
+        border-radius: 10px;
+        background: #4f46e5;
+        color: white;
+        font-size: 16px;
+        cursor: pointer;
+        transition: 0.3s;
+    }
+
+    .login-container button:hover {
+        background: #4338ca;
+    }
+
+    #message {
+        margin-top: 10px;
+        color: red;
+        font-weight: 600;
+    }
+
+    #flag-container {
+        display: none;
+        margin-top: 20px;
+        background: #e0f2fe;
+        color: #0369a1;
+        padding: 15px;
+        border-radius: 12px;
+        font-family: monospace;
+        font-size: 16px;
+        word-break: break-all;
+    }
+
+    .circle {
+        position: absolute;
+        border-radius: 50%;
+        background: rgba(79,70,229,0.2);
+        animation: float 6s ease-in-out infinite;
+    }
+    .circle:nth-child(1) { width: 100px; height: 100px; top: -50px; left: -50px; }
+    .circle:nth-child(2) { width: 150px; height: 150px; bottom: -75px; right: -75px; animation-delay: 2s; }
+
+    @keyframes float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(20px); }
+    }
+</style>
+</head>
+<body>
+
+<!--
+CTF Hint:
+- Username and password are in JS
+- Flag is stored in Base64
+-->
+
+<div class="login-container">
+    <div class="circle"></div>
+    <div class="circle"></div>
+    <h1>🔒 Secure Login</h1>
+    <input type="text" id="username" placeholder="Username">
+    <input type="password" id="password" placeholder="Password">
+    <button onclick="checkLogin()">Login</button>
+    <div id="message"></div>
+    <div id="flag-container">
+        🎉 Congratulations! Here is your flag:<br>
+        <span id="flag"></span>
+    </div>
+</div>
+
+<script>
+    // Hardcoded credentials
+    const realUser = 'admin';
+    const realPass = 'P@ssw0rd123';
+
+    // Flag stored in Base64
+    const encodedFlag = 'RkxBR3tTVVBFUl9TRUNVUkVfQ1RGX0xPR0lOfQ=='; // FLAG{SUPER_SECURE_CTF_LOGIN}
+
+    // Fake confusing function
+    function fakeEncrypt(str) {
+        return str.split('').reverse().join('') + btoa(str).substr(0,3);
+    }
+
+    function checkLogin() {
+        const user = document.getElementById('username').value;
+        const pass = document.getElementById('password').value;
+        const msg = document.getElementById('message');
+
+        const fakeUser = fakeEncrypt(user);
+        const fakePass = fakeEncrypt(pass);
+
+        if(user === realUser && pass === realPass){
+            const flag = atob(encodedFlag); // decode Base64 only after correct login
+            document.getElementById('flag').textContent = flag;
+            document.getElementById('flag-container').style.display = 'block';
+            msg.textContent = '';
+        } else {
+            msg.textContent = 'Invalid username or password!';
+        }
+    }
+</script>
+
+
+
+</body></html>
