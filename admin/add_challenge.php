@@ -76,17 +76,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </head>
 <body class="h-screen flex">
 
-  <!-- Sidebar -->
-  <div class="sidebar w-64">
-    <h2 class="text-green-400 text-xl font-bold p-4 border-b border-green-500">APIIT CTF</h2>
-    <a href="dashboard.php">🏠 Dashboard</a>
-    <a href="categories.php">➕ Add Categories</a>
-    <a href="add_challenge.php" 
-    class="text-green-400">➕ Add Challenge</a>
-    <a href="manage_users.php">👥 Manage Users</a>
-    <a href="leaderboard.php">🏆 Leaderboard</a>
-    <a href="../logout.php" class="text-red-400">🚪 Logout</a>
-  </div>
+<div class="sidebar w-64">
+  <h2 class="text-green-400 text-xl font-bold p-4 border-b border-green-500">APIIT CTF</h2>
+  <a href="dashboard.php">🏠 Dashboard</a>
+  <a href="add_challenge.php">➕ Add Challenge</a>
+  <a href="manage_challenges.php">📋 Manage Challenges</a>
+  <a href="manage_users.php">👥 Manage Users</a>
+  <a href="manage_hints.php">👥 Manage Hints</a>
+  <a href="leaderboard.php">🏆 Leaderboard</a>
+  <a href="../logout.php" class="text-red-400">🚪 Logout</a>
+</div>
 
   <!-- Main Content -->
   <div class="flex-1 p-6">

@@ -12,22 +12,40 @@ $success = $error = '';
 
 // Handle Add User Form
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = trim($_POST['username']);
-    $password = trim($_POST['password']);
-    $role = $_POST['role'];
+    // Add User
+    if (isset($_POST['username'], $_POST['password'], $_POST['role'])) {
+        $username = trim($_POST['username']);
+        $password = trim($_POST['password']);
+        $role = $_POST['role'];
 
-    if ($username && $password && in_array($role, ['admin','user'])) {
-        $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
-
-        $stmt = $pdo->prepare("INSERT INTO users (username, password, role) VALUES (?, ?, ?)");
-        try {
-            $stmt->execute([$username, $hashedPassword, $role]);
-            $success = "User '$username' added successfully!";
-        } catch (PDOException $e) {
-            $error = "Error: " . $e->getMessage();
+        if ($username && $password && in_array($role, ['admin','user'])) {
+            $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+            $stmt = $pdo->prepare("INSERT INTO users (username, password, role) VALUES (?, ?, ?)");
+            try {
+                $stmt->execute([$username, $hashedPassword, $role]);
+                $success = "User '$username' added successfully!";
+            } catch (PDOException $e) {
+                $error = "Error: " . $e->getMessage();
+            }
+        } else {
+            $error = "Please fill all fields correctly.";
         }
-    } else {
-        $error = "Please fill all fields correctly.";
+    }
+
+    // Delete User
+    if (isset($_POST['delete_user_id'])) {
+        $delete_id = (int)$_POST['delete_user_id'];
+        if ($delete_id) {
+            try {
+                // Delete related activity logs
+                $pdo->prepare("DELETE FROM user_activity WHERE user_id = ?")->execute([$delete_id]);
+                // Delete the user
+                $pdo->prepare("DELETE FROM users WHERE id = ?")->execute([$delete_id]);
+                $success = "User deleted successfully!";
+            } catch (PDOException $e) {
+                $error = "Error deleting user: " . $e->getMessage();
+            }
+        }
     }
 }
 
@@ -46,15 +64,17 @@ $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 <style>
 body { font-family: 'Source Code Pro', monospace; background:#0b0f12; color:#c9f7e4; }
 .sidebar { background:#071018; border-right:1px solid rgba(45,226,138,0.2); }
-.sidebar a { display:block; padding:12px; color:#c9f7e4; border-bottom:1px solid rgba(255,255,255,0.05); }
+.sidebar a { display:block; padding:12px; color:#c9f7e4; border-bottom:1px solid rgba(255,255,255,0.05); transition:0.2s; }
 .sidebar a:hover { background:rgba(45,226,138,0.1); color:#2de28a; }
 .glass { backdrop-filter: blur(8px); background: rgba(0,0,0,0.5); border: 1px solid rgba(45,226,138,0.3); }
-input, select { background: rgba(255,255,255,0.05); border:1px solid rgba(45,226,138,0.3); color:#c9f7e4; }
+input, select, button { background: rgba(255,255,255,0.05); border:1px solid rgba(45,226,138,0.3); color:#c9f7e4; padding:8px; border-radius:6px; }
 input:focus, select:focus { outline:none; border-color:#2de28a; }
 table { width:100%; border-collapse: collapse; }
 th, td { padding: 8px 12px; border-bottom: 1px solid rgba(45,226,138,0.2); text-align:left; }
 th { color:#2de28a; }
 tr:hover { background: rgba(45,226,138,0.05); }
+button.delete-btn { background:#f56565; color:black; font-weight:bold; transition: background 0.2s; }
+button.delete-btn:hover { background:#c53030; cursor:pointer; }
 </style>
 </head>
 <body class="h-screen flex">
@@ -77,7 +97,6 @@ tr:hover { background: rgba(45,226,138,0.05); }
   <?php if($success): ?>
     <div class="mb-4 p-3 bg-green-900/30 border border-green-500 rounded text-green-300"><?= htmlspecialchars($success) ?></div>
   <?php endif; ?>
-
   <?php if($error): ?>
     <div class="mb-4 p-3 bg-red-900/30 border border-red-500 rounded text-red-400"><?= htmlspecialchars($error) ?></div>
   <?php endif; ?>
@@ -117,18 +136,29 @@ tr:hover { background: rgba(45,226,138,0.05); }
           <th>Score</th>
           <th>Created At</th>
           <th>Last Login</th>
+          <th>Actions</th>
         </tr>
       </thead>
       <tbody>
         <?php foreach($users as $u): ?>
-          <tr>
-            <td><?= $u['id'] ?></td>
-            <td><?= htmlspecialchars($u['username']) ?></td>
-            <td><?= $u['role'] ?></td>
-            <td><?= $u['score'] ?></td>
-            <td><?= $u['created_at'] ?></td>
-            <td><?= $u['last_login'] ?? '-' ?></td>
-          </tr>
+        <tr>
+          <td><?= $u['id'] ?></td>
+          <td><?= htmlspecialchars($u['username']) ?></td>
+          <td><?= $u['role'] ?></td>
+          <td><?= $u['score'] ?></td>
+          <td><?= $u['created_at'] ?></td>
+          <td><?= $u['last_login'] ?? '-' ?></td>
+          <td>
+            <?php if($u['role'] !== 'admin'): ?>
+            <form method="POST" onsubmit="return confirm('Are you sure you want to delete this user?');">
+              <input type="hidden" name="delete_user_id" value="<?= $u['id'] ?>">
+              <button type="submit" class="delete-btn px-3 py-1 rounded">Delete</button>
+            </form>
+            <?php else: ?>
+              <span class="text-green-300">—</span>
+            <?php endif; ?>
+          </td>
+        </tr>
         <?php endforeach; ?>
       </tbody>
     </table>

@@ -69,6 +69,21 @@ unset($_SESSION['error']);
     .glow-text {
       text-shadow: 0 0 12px #22c55e;
     }
+    /* Footer glow */
+    .footer-powered {
+      display: inline-block;
+      position: relative;
+      font-weight: bold;
+      letter-spacing: 1px;
+      color: #22c55e;
+      text-shadow: 0 0 8px #22c55e, 0 0 15px #16a34a;
+      transition: 0.3s ease-in-out;
+    }
+    .footer-powered:hover {
+      color: #4ade80;
+      text-shadow: 0 0 15px #22c55e, 0 0 30px #16a34a, 0 0 40px #16a34a;
+      transform: scale(1.05);
+    }
   </style>
 </head>
 <body class="min-h-screen flex items-center justify-center px-4">
@@ -100,8 +115,9 @@ unset($_SESSION['error']);
       </button>
     </form>
 
-    <p class="text-center text-xs text-gray-400 mt-6">
-      Powered by <span class="text-green-400">APIIT_CTF</span>
+    <!-- Footer -->
+    <p class="text-center text-sm mt-8 text-gray-400">
+      Powered by <span class="footer-powered">HACKERSPLOIT</span>
     </p>
   </div>
 </body>

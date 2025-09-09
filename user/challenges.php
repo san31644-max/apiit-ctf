@@ -140,6 +140,7 @@ foreach ($categories as $cat) {
   <a href="challenges.php">🛠 Challenges</a>
   <a href="leaderboard.php">🏆 Leaderboard</a>
   <a href="profile.php">👤 Profile</a>
+  <a href="hints.php">💡 Hints</a>
   <a href="../logout.php" class="text-red-400">🚪 Logout</a>
 </div>
 
