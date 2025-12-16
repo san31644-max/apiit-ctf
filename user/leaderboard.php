@@ -7,14 +7,12 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'user') {
     exit;
 }
 
-
-
 // Top 10 competitors
 $stmt = $pdo->query("SELECT username, score FROM users WHERE role = 'user' ORDER BY score DESC LIMIT 10");
 $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Current user's rank
-$stmt2 = $pdo->prepare("SELECT COUNT(*)+1 AS rank FROM users WHERE role = 'user' AND score > (SELECT score FROM users WHERE id = ?)");
+$stmt2 = $pdo->prepare("SELECT COUNT(*) + 1 AS `rank` FROM users WHERE role = 'user' AND score > (SELECT score FROM users WHERE id = ?)");
 $stmt2->execute([$_SESSION['user_id']]);
 $userRank = $stmt2->fetch(PDO::FETCH_ASSOC)['rank'];
 ?>
@@ -91,7 +89,9 @@ body {
           </tr>
         </thead>
         <tbody>
-          <?php $rank = 1; foreach($users as $u): 
+          <?php 
+          $rank = 1; 
+          foreach($users as $u): 
             $badgeClass = $rank === 1 ? 'rank-1' : ($rank === 2 ? 'rank-2' : ($rank === 3 ? 'rank-3' : ''));
             if($u['username'] === $_SESSION['username']) $badgeClass = 'rank-me';
           ?>
