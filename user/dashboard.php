@@ -10,15 +10,14 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'user') {
 
 log_activity($pdo, $_SESSION['user_id'], "Visited Dashboard", $_SERVER['REQUEST_URI']);
 
-// ---------- Dynamic stats: best-effort detection ----------
+// ---------- Dynamic stats ----------
 $userId = (int)$_SESSION['user_id'];
 $username = $_SESSION['username'] ?? 'Player';
 
-// Defaults / fallbacks
 $solvedCount = 0;
-$score = null; // keep null if unknown
+$score = null;
 $rank = '—';
-$statsSource = []; // capture what method we used (for debugging)
+$statsSource = [];
 
 function tableExists($pdo, $table) {
     try {
@@ -187,6 +186,7 @@ body { font-family: 'Source Code Pro', monospace; background:#0b0f12; color:#c9f
 
 <div class="flex-1 p-6 overflow-auto space-y-6">
   
+  <!-- Welcome Card -->
   <div class="card">
     <div class="flex items-center justify-between">
       <div>
@@ -195,11 +195,11 @@ body { font-family: 'Source Code Pro', monospace; background:#0b0f12; color:#c9f
       </div>
       <div class="text-right">
        <p class="meta">Data source: Score & solved challenges</p>
-
       </div>
     </div>
   </div>
 
+  <!-- Quick Stats -->
   <div class="card">
     <h2 class="section-title">📊 Quick Stats</h2>
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -218,6 +218,26 @@ body { font-family: 'Source Code Pro', monospace; background:#0b0f12; color:#c9f
     </div>
   </div>
 
+  <!-- Prize Pool Card -->
+  <div class="card">
+    <h2 class="section-title">🏆 Prize Pool</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-center">
+      <div class="p-4 rounded-lg" style="background:linear-gradient(145deg,#FFD700, #FFEC8B); color:#000;">
+        <div class="text-2xl font-bold">1️⃣ First Place</div>
+        <div class="text-3xl font-extrabold">20,000 LKR</div>
+      </div>
+      <div class="p-4 rounded-lg" style="background:linear-gradient(145deg,#C0C0C0, #E0E0E0); color:#000;">
+        <div class="text-2xl font-bold">2️⃣ Second Place</div>
+        <div class="text-3xl font-extrabold">15,000 LKR</div>
+      </div>
+      <div class="p-4 rounded-lg" style="background:linear-gradient(145deg,#CD7F32, #D9A066); color:#000;">
+        <div class="text-2xl font-bold">3️⃣ Third Place</div>
+        <div class="text-3xl font-extrabold">10,000 LKR</div>
+      </div>
+    </div>
+    <p class="mt-2 text-sm text-gray-300">Prizes awarded to top 3 competitors on the leaderboard.</p>
+  </div>
+
   <!-- Challenge Categories -->
   <div>
     <h2 class="section-title">🕹️ Challenge Categories</h2>
@@ -231,7 +251,7 @@ body { font-family: 'Source Code Pro', monospace; background:#0b0f12; color:#c9f
     </div>
   </div>
 
-  <!-- Educational Materials Cards -->
+  <!-- Educational Materials -->
   <div>
     <h2 class="section-title">📚 Educational Resources & Tips</h2>
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
