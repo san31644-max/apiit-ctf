@@ -7,7 +7,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'user') {
     exit;
 }
 
-// Top 10 competitors
+// Fetch top 10 users
 $stmt = $pdo->query("SELECT username, score FROM users WHERE role = 'user' ORDER BY score DESC LIMIT 10");
 $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -17,51 +17,90 @@ $stmt2->execute([$_SESSION['user_id']]);
 $userRank = $stmt2->fetch(PDO::FETCH_ASSOC)['rank'];
 ?>
 
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>User Leaderboard — APIIT CTF</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Leaderboard — APIIT CTF</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Source+Code+Pro:wght@400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
 
 body {
-    font-family: 'Source Code Pro', monospace;
-    background: #0b0f12;
-    color: #c9f7e4;
+    font-family: 'Share Tech Mono', monospace;
+    background: radial-gradient(circle at top, #0f172a, #020617);
+    color: #e2e8f0;
+    overflow-x: hidden;
+    position: relative;
 }
-.sidebar { background:#071018; border-right:1px solid rgba(45,226,138,0.2); }
+
+/* Animated grid background */
+body::after {
+    content:"";
+    position: fixed; top:0; left:0; width:100%; height:100%;
+    background-image: linear-gradient(rgba(34,197,94,0.05) 1px, transparent 1px),
+                      linear-gradient(90deg, rgba(34,197,94,0.05) 1px, transparent 1px);
+    background-size: 50px 50px;
+    animation: moveGrid 15s linear infinite;
+    pointer-events: none; z-index:0;
+}
+@keyframes moveGrid {
+    0% {background-position: 0 0, 0 0;}
+    100% {background-position: 100px 100px, -100px -100px;}
+}
+
+/* Sidebar */
+.sidebar { background:#071018; border-right:1px solid rgba(34,197,94,0.3); position:fixed; height:100vh; width:16rem; z-index:10; }
 .sidebar a { display:block; padding:12px; color:#c9f7e4; border-bottom:1px solid rgba(255,255,255,0.05); transition:0.2s; }
-.sidebar a:hover { background:rgba(45,226,138,0.1); color:#2de28a; }
-.leaderboard-container { max-width:900px; margin:auto; padding:2rem; }
-.leaderboard-card {
-    backdrop-filter: blur(10px);
-    background: rgba(0,0,0,0.5);
-    border: 1px solid rgba(45,226,138,0.4);
-    border-radius: 1rem;
-    padding: 1rem;
-    box-shadow: 0 0 20px rgba(45,226,138,0.2);
+.sidebar a:hover { background:rgba(34,197,94,0.1); color:#22c55e; }
+
+/* Leaderboard container */
+.leaderboard-container { max-width:1100px; margin:auto; padding:2rem; display:grid; grid-template-columns: repeat(auto-fill,minmax(250px,1fr)); gap:1.5rem; z-index:5; position:relative; }
+
+/* User card */
+.user-card {
+    backdrop-filter: blur(12px);
+    background: rgba(15,23,42,0.7);
+    border:1px solid rgba(34,197,94,0.4);
+    border-radius:1rem;
+    padding:2rem 1.5rem;
+    text-align:center;
+    box-shadow:0 0 20px rgba(34,197,94,0.2);
+    position:relative;
+    overflow:hidden;
+    opacity:0;
+    transform: translateY(20px);
+    animation: fadeInUp 0.7s forwards;
 }
-.table { width:100%; border-collapse:collapse; margin-top:1rem; }
-.table th, .table td { padding:12px; text-align:center; border-bottom: 1px solid rgba(45,226,138,0.2); }
-.table th { color:#2de28a; font-weight:600; }
-.table tr:hover { background: rgba(45,226,138,0.1); transform: scale(1.02); transition:0.2s; }
+.user-card:hover { transform: translateY(-4px); box-shadow:0 0 35px #22c55e; transition:0.3s; }
+
+.user-card h3 { font-size:1.5rem; color:#22c55e; text-shadow:0 0 10px #22c55e; margin-bottom:0.5rem; }
+.user-card p { font-size:1.4rem; font-weight:bold; color:#22c55e; text-shadow:0 0 6px #22c55e; animation: pulseScore 1.2s infinite alternate; }
+
+/* Rank badge as cup icon */
 .rank-badge {
-    display:inline-block;
-    padding:4px 8px;
-    border-radius:6px;
-    color:#fff;
-    font-weight:600;
+    position:absolute; top:-12px; left:50%; transform:translateX(-50%);
+    font-size:2rem;
 }
-.rank-1 { background:#FFD700; } /* Gold */
-.rank-2 { background:#C0C0C0; } /* Silver */
-.rank-3 { background:#CD7F32; } /* Bronze */
-.rank-me { background:#2de28a; }
+.rank-1::before { content:"🏆"; }
+.rank-2::before { content:"🥈"; }
+.rank-3::before { content:"🥉"; }
+.rank-me { content:"✨"; }
+
+/* Animations */
+@keyframes fadeInUp {
+    0% { opacity:0; transform: translateY(20px); }
+    100% { opacity:1; transform: translateY(0); }
+}
+
+@keyframes pulseScore {
+    0% { text-shadow:0 0 6px #22c55e; }
+    100% { text-shadow:0 0 18px #22c55e; }
+}
 </style>
 </head>
-<body class="h-screen flex">
+<body class="flex">
 
 <!-- Sidebar -->
 <div class="sidebar w-64">
@@ -74,38 +113,29 @@ body {
   <a href="../logout.php" class="text-red-400">🚪 Logout</a>
 </div>
 
-<div class="flex-1 overflow-auto p-6">
+<div class="flex-1 p-6 ml-64">
+  <h1 class="text-4xl font-bold text-green-400 mb-4">Leaderboard</h1>
+  
   <div class="leaderboard-container">
-    <h1 class="text-3xl font-bold text-green-400 mb-4">Leaderboard</h1>
-    <p class="mb-4 text-gray-400">Your current rank: <span class="rank-me px-2 py-1 rounded"><?= htmlspecialchars($userRank) ?></span></p>
-
-    <div class="leaderboard-card">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>Rank</th>
-            <th>Username</th>
-            <th>Score</th>
-          </tr>
-        </thead>
-        <tbody>
-          <?php 
-          $rank = 1; 
-          foreach($users as $u): 
-            $badgeClass = $rank === 1 ? 'rank-1' : ($rank === 2 ? 'rank-2' : ($rank === 3 ? 'rank-3' : ''));
-            if($u['username'] === $_SESSION['username']) $badgeClass = 'rank-me';
-          ?>
-          <tr>
-            <td><span class="rank-badge <?= $badgeClass ?>"><?= $rank ?></span></td>
-            <td><?= htmlspecialchars($u['username']) ?></td>
-            <td><?= $u['score'] ?></td>
-          </tr>
-          <?php $rank++; endforeach; ?>
-        </tbody>
-      </table>
-    </div>
+      <?php
+      $rank = 1;
+      foreach($users as $u):
+          if($rank==1) $badgeClass='rank-1';
+          elseif($rank==2) $badgeClass='rank-2';
+          elseif($rank==3) $badgeClass='rank-3';
+          elseif($u['username']==$_SESSION['username']) $badgeClass='rank-me';
+          else $badgeClass='';
+      ?>
+      <div class="user-card" style="animation-delay: <?= ($rank*0.1) ?>s">
+          <div class="rank-badge <?= $badgeClass ?>"></div>
+          <h3><?= htmlspecialchars($u['username']) ?></h3>
+          <p><?= $u['score'] ?> pts</p>
+      </div>
+      <?php
+          $rank++;
+      endforeach;
+      ?>
   </div>
 </div>
-
 </body>
 </html>
