@@ -66,6 +66,7 @@ body {
     backdrop-filter: blur(14px);
     display: flex;
     flex-direction: column;
+    position: relative;
 }
 
 /* ===== HEADER ===== */
@@ -82,6 +83,30 @@ body {
     letter-spacing: 3px;
     text-shadow: 0 0 20px rgba(45,226,138,0.4);
 }
+
+/* ===== TIMER ===== */
+.timer {
+    text-align: center;
+    margin-bottom: 20px;
+    font-size: 1.8rem;
+    color: #2de28a;
+    text-shadow: 0 0 12px rgba(45,226,138,0.6);
+}
+.timer button {
+    margin: 0 6px;
+    padding: 6px 16px;
+    font-weight: 600;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+.timer button:hover {
+    transform: scale(1.1);
+}
+.btn-start { background-color: #2de28a; color: #020409; }
+.btn-pause { background-color: #facc15; color: #020409; }
+.btn-reset { background-color: #ef4444; color: #fff; }
 
 /* ===== TABLE ===== */
 .table-wrap {
@@ -198,6 +223,16 @@ td {
             <h1>APIIT CTF — CYBER ARENA</h1>
         </div>
 
+        <!-- ===== TIMER ===== -->
+        <div class="timer">
+            <div id="countdown">05:00:00</div>
+            <div class="mt-2">
+                <button class="btn-start" onclick="startTimer()">Start</button>
+                <button class="btn-pause" onclick="pauseTimer()">Pause</button>
+                <button class="btn-reset" onclick="resetTimer()">Reset</button>
+            </div>
+        </div>
+
         <div class="table-wrap">
             <table>
                 <thead>
@@ -236,18 +271,65 @@ td {
 </div>
 
 <script>
-// Soft parallax motion (calm)
+// ===== HOLOGRAM PARALLAX =====
 const panel = document.getElementById('panel');
 let angle = 0;
-
 setInterval(() => {
     angle += 0.02;
     panel.style.transform =
         `rotateX(${8 + Math.sin(angle)*1.5}deg) rotateY(${Math.cos(angle)*1.5}deg)`;
 }, 50);
 
-// Refresh data calmly
+// ===== AUTO REFRESH =====
 setTimeout(() => location.reload(), 15000);
+
+// ===== TIMER LOGIC =====
+let timerDuration = 5 * 60 * 60; // 5 hours in seconds
+let remaining = timerDuration;
+let timerInterval = null;
+
+const countdown = document.getElementById('countdown');
+
+function formatTime(sec) {
+    const h = String(Math.floor(sec / 3600)).padStart(2,'0');
+    const m = String(Math.floor((sec % 3600)/60)).padStart(2,'0');
+    const s = String(sec % 60).padStart(2,'0');
+    return `${h}:${m}:${s}`;
+}
+
+function updateTimer() {
+    countdown.textContent = formatTime(remaining);
+    if (remaining <= 0) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+        alert("⏰ Time's up!");
+    }
+}
+
+function startTimer() {
+    if (!timerInterval) {
+        timerInterval = setInterval(() => {
+            remaining--;
+            updateTimer();
+        }, 1000);
+    }
+}
+
+function pauseTimer() {
+    if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+    }
+}
+
+function resetTimer() {
+    pauseTimer();
+    remaining = timerDuration;
+    updateTimer();
+}
+
+// Initialize display
+updateTimer();
 </script>
 
 </body>
