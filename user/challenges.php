@@ -30,7 +30,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['challenge_id'], $_POS
             $stmtUpdate = $pdo->prepare("UPDATE users SET score = score + ? WHERE id = ?");
             $stmtUpdate->execute([$challenge['points'], $_SESSION['user_id']]);
 
-            $stmtSolved = $pdo->prepare("INSERT INTO solves (user_id, challenge_id, solved_at) VALUES (?, ?, NOW())");
+            $stmtSolved = $pdo->prepare(
+                "INSERT INTO solves (user_id, challenge_id, solved_at) VALUES (?, ?, NOW())"
+            );
             $stmtSolved->execute([$_SESSION['user_id'], $challenge_id]);
 
             $message = "✅ Correct! You earned {$challenge['points']} points.";
@@ -62,6 +64,9 @@ foreach ($categories as $cat) {
     $stmt->execute([$cat['id']]);
     $challengesByCategory[$cat['id']] = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
+
+// Base project path (apiit-ctf)
+$basePath = realpath(__DIR__ . '/../');
 ?>
 <!doctype html>
 <html lang="en">
@@ -83,8 +88,8 @@ foreach ($categories as $cat) {
     box-shadow: 0 0 20px rgba(34,197,94,0.1);
   }
   .sidebar a {
-    display:block; padding:12px; 
-    color:#cbd5e1; 
+    display:block; padding:12px;
+    color:#cbd5e1;
     border-bottom:1px solid rgba(255,255,255,0.05);
     transition:0.2s;
   }
@@ -147,77 +152,57 @@ foreach ($categories as $cat) {
 
 <!-- Main -->
 <div class="flex-1 p-6 overflow-auto">
-  <h1 class="text-3xl font-bold text-green-400 mb-6 glow-text">Challenges</h1>
+  <h1 class="text-3xl font-bold text-green-400 mb-6">Challenges</h1>
 
   <?php if($message): ?>
-    <div class="mb-4 p-3 bg-green-900/40 border border-green-500 rounded text-green-300 font-semibold animate-pulse">
+    <div class="mb-4 p-3 bg-green-900/40 border border-green-500 rounded text-green-300 font-semibold">
       <?= htmlspecialchars($message) ?>
     </div>
   <?php endif; ?>
 
   <?php foreach($categories as $cat): ?>
     <h2 class="text-2xl font-bold text-green-300 mb-2 mt-6"><?= htmlspecialchars($cat['name']) ?></h2>
-    <?php if (!empty($cat['description'])): ?>
-      <p class="mb-4 text-green-200 italic"><?= htmlspecialchars($cat['description']) ?></p>
-    <?php endif; ?>
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      <?php if(!empty($challengesByCategory[$cat['id']])): ?>
-        <?php foreach($challengesByCategory[$cat['id']] as $c): ?>
-          <div class="challenge-card <?= in_array($c['id'], $solvedIds) ? 'solved' : '' ?>">
-            <div class="flex justify-between items-center mb-2">
-              <h3 class="text-xl text-green-300 font-bold"><?= htmlspecialchars($c['title']) ?></h3>
-              <span class="text-green-400 font-bold"><?= $c['points'] ?> pts</span>
-            </div>
-
-            <?php if(!empty($c['tags'])): ?>
-              <div class="mb-2">
-                <?php foreach(explode(',', $c['tags']) as $tag) echo '<span class="tag">'.htmlspecialchars(trim($tag)).'</span>'; ?>
-              </div>
-            <?php endif; ?>
-
-            <!-- File -->
-            <?php 
-            if (!empty($c['file_path'])) {
-                $fullPath = __DIR__ . '/../' . $c['file_path']; 
-                if (file_exists($fullPath)) { ?>
-                    <p class="mb-2">
-                        <a href="../<?= htmlspecialchars($c['file_path']) ?>" download class="text-green-400 hover:underline">📄 Download file</a>
-                    </p>
-            <?php   } else { ?>
-                    <p class="mb-2 text-red-400">File not available</p>
-            <?php   }
-            } ?>
-
-      <!-- Description -->
-      <?php if(!empty($c['description'])): ?>
-        <p class="text-sm text-gray-300 mb-3"><?= nl2br(htmlspecialchars($c['description'])) ?></p>
-      <?php endif; ?>
-
-            <!-- Link -->
-            <?php if (!empty($c['link'])): ?>
-                <p class="mb-2">
-                    <a href="<?= htmlspecialchars($c['link']) ?>" target="_blank" class="text-green-400 hover:underline">🔗 Open challenge link</a>
-                </p>
-            <?php endif; ?>
-
-            <?php if(!in_array($c['id'], $solvedIds)): ?>
-              <form method="POST">
-                <input type="hidden" name="challenge_id" value="<?= $c['id'] ?>">
-                <input type="text" name="flag" placeholder="Enter flag here" required class="mb-2">
-                <button type="submit">Submit Flag</button>
-              </form>
-            <?php else: ?>
-              <div class="text-green-400 font-bold">✅ Completed</div>
-            <?php endif; ?>
+      <?php foreach($challengesByCategory[$cat['id']] ?? [] as $c): ?>
+        <div class="challenge-card <?= in_array($c['id'], $solvedIds) ? 'solved' : '' ?>">
+          <div class="flex justify-between items-center mb-2">
+            <h3 class="text-xl text-green-300 font-bold"><?= htmlspecialchars($c['title']) ?></h3>
+            <span class="text-green-400 font-bold"><?= $c['points'] ?> pts</span>
           </div>
-        <?php endforeach; ?>
-      <?php else: ?>
-        <p class="text-green-300 mb-4">No challenges in this category yet.</p>
-      <?php endif; ?>
+
+          <!-- FILE DOWNLOAD (FIXED) -->
+          <?php
+          if (!empty($c['file_path'])) {
+              $fileReal = realpath($basePath . '/' . $c['file_path']);
+              if ($fileReal && str_starts_with($fileReal, $basePath) && file_exists($fileReal)) {
+                  ?>
+                  <p class="mb-2">
+                    <a href="../<?= htmlspecialchars($c['file_path']) ?>" download
+                       class="text-green-400 hover:underline">📄 Download file</a>
+                  </p>
+                  <?php
+              } else {
+                  ?>
+                  <p class="mb-2 text-red-400">File not available</p>
+                  <?php
+              }
+          }
+          ?>
+
+          <?php if(!in_array($c['id'], $solvedIds)): ?>
+            <form method="POST">
+              <input type="hidden" name="challenge_id" value="<?= $c['id'] ?>">
+              <input type="text" name="flag" placeholder="Enter flag here" required class="mb-2">
+              <button type="submit">Submit Flag</button>
+            </form>
+          <?php else: ?>
+            <div class="text-green-400 font-bold">✅ Completed</div>
+          <?php endif; ?>
+        </div>
+      <?php endforeach; ?>
     </div>
   <?php endforeach; ?>
-
 </div>
 </body>
 </html>
