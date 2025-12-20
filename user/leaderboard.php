@@ -103,14 +103,15 @@ body::after {
 <body class="flex">
 
 <!-- Sidebar -->
-<div class="sidebar w-64">
-  <h2 class="text-green-400 text-xl font-bold p-4 border-b border-green-500">APIIT CTF</h2>
-  <a href="dashboard.php">🏠 Dashboard</a>
-  <a href="challenges.php">🛠 Challenges</a>
-  <a href="leaderboard.php">🏆 Leaderboard</a>
-  <a href="profile.php">👤 Profile</a>
-  <a href="hints.php">💡 Hints</a>
-  <a href="../logout.php" class="text-red-400">🚪 Logout</a>
+<div class="sidebar">
+    <h2 class="text-green-400 text-xl font-bold p-4 border-b border-green-500">APIIT CTF</h2>
+    <a href="dashboard.php">🏠 Dashboard</a>
+    <a href="challenges.php">🛠 Challenges</a>
+    <a href="leaderboard.php">🏆 Leaderboard</a>
+    <a href="instructions.php" class="bg-green-900">📖 Instructions</a>
+    <a href="hints.php">💡 Hints</a>
+    <a href="profile.php">👤 Profile</a>
+    <a href="../logout.php" class="text-red-400">🚪 Logout</a>
 </div>
 
 <div class="flex-1 p-6 ml-64">
