@@ -130,10 +130,10 @@ body{
     <p class="meta mt-1">Last updated: <?= htmlspecialchars($lastUpdated) ?></p>
 </div>
 
-<!-- Warning -->
+<!-- Critical Notice -->
 <div class="card border-yellow-400">
     <p class="text-yellow-300 text-sm">
-        ⚠️ Viewing hints will deduct points from your score. Think before revealing.
+        ⚠️ Important: Viewing hints deducts points. Leaderboard and hints will be disabled during the final hour.
     </p>
 </div>
 
@@ -142,10 +142,10 @@ body{
     <h2 class="section-title green">📖 General Instructions</h2>
     <ul class="list-disc list-inside space-y-2 text-sm">
         <li>Each challenge contains one valid flag.</li>
-        <li>Flags must be submitted in the correct format.</li>
-        <li>Scores update instantly upon successful submission.</li>
-        <li>All actions are logged for fairness and security.</li>
-        <li>Learning and ethical behavior are encouraged.</li>
+        <li>Submit flags in the correct format.</li>
+        <li>Scores update instantly on valid submission.</li>
+        <li>All user actions are logged for security.</li>
+        <li>Ethical hacking principles must be followed.</li>
     </ul>
 </div>
 
@@ -153,28 +153,42 @@ body{
 <div class="card">
     <h2 class="section-title green">💡 Hints & Point Penalties</h2>
     <ul class="list-disc list-inside space-y-2 text-sm">
-        <li>Hints are available for selected challenges.</li>
-        <li>Each hint has a predefined point cost.</li>
-        <li>Viewing a hint deducts points immediately.</li>
-        <li>Points are deducted only once per hint.</li>
-        <li>Leaderboard rankings update instantly.</li>
+        <li>Hints are available only during the first 4 hours.</li>
+        <li>Each hint has a predefined point deduction.</li>
+        <li>Points are deducted immediately upon viewing.</li>
+        <li>Hints cannot be re-hidden once revealed.</li>
     </ul>
 </div>
 
-<!-- 🚫 PROHIBITED ACTIONS -->
+<!-- ⏱ FINAL HOUR RULES -->
+<div class="card border-yellow-500">
+    <h2 class="section-title text-yellow-400">⏱ Final Hour Rules (Last 1 Hour)</h2>
+    <ul class="list-disc list-inside space-y-2 text-sm text-yellow-300">
+        <li>The leaderboard will be hidden after the first 4 hours.</li>
+        <li>Hints will be completely disabled after 4 hours.</li>
+        <li>No score visibility during the final hour.</li>
+        <li>Players must focus on solving remaining challenges.</li>
+        <li>Use the final hour to complete documentation and reports.</li>
+    </ul>
+
+    <p class="text-yellow-400 text-sm mt-3">
+        📝 Tip: A detailed report can make a difference during evaluations.
+    </p>
+</div>
+
+<!-- 🚫 Prohibited Actions -->
 <div class="card border-red-500">
     <h2 class="section-title red">🚫 Prohibited Actions</h2>
     <ul class="list-disc list-inside space-y-2 text-sm text-red-300">
-        <li>Sharing flags, hints, or solutions with others.</li>
-        <li>Attacking the CTF platform infrastructure.</li>
+        <li>Sharing flags, hints, or solutions with other players outside your team.</li>
+        <li>Attacking the CTF infrastructure.</li>
         <li>Brute-forcing flags or abusing submissions.</li>
-        <li>Using automated scanners unless explicitly allowed.</li>
-        <li>Exploiting bugs outside challenge scope.</li>
-        <li>Collaboration between teams or players.</li>
+        <li>Using automated tools unless allowed.</li>
+        <li>Exploiting vulnerabilities outside challenge scope.</li>
+        <li>Collaboration between individual players or teams.</li>
     </ul>
-
     <p class="text-red-400 text-sm mt-3">
-        ❗ Violation of these rules may result in score reset or immediate disqualification.
+        ❗ Violations may lead to disqualification or score reset.
     </p>
 </div>
 
@@ -182,17 +196,17 @@ body{
 <div class="card">
     <h2 class="section-title green">🛡 Fair Play Policy</h2>
     <ul class="list-disc list-inside space-y-2 text-sm">
-        <li>Respect the learning environment.</li>
-        <li>Report unintended vulnerabilities responsibly.</li>
+        <li>Report unintended platform issues responsibly.</li>
+        <li>Respect competitors and organizers.</li>
     </ul>
 </div>
 
 <!-- Final -->
 <div class="card">
-    <h2 class="section-title green">🚀 Ready to Begin?</h2>
+    <h2 class="section-title green">🚀 Final Note</h2>
     <p class="text-sm">
-        Hack responsibly, learn continuously, and enjoy the challenge.
-        May your flags be valid and your payloads precise 💚
+        Stay focused, manage your time wisely, and document your work clearly.
+        Skill, ethics, and professionalism define true winners. 💚
     </p>
 </div>
 
