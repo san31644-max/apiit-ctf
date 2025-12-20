@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>⚡ AFTERMATH TIMER ⚡</title>
+<title>⚡ Custom Cyber CTF Timer ⚡</title>
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500&display=swap');
 
@@ -41,20 +41,20 @@
     }
 
     h1 {
-        font-size: 3rem;
+        font-size: 2.5rem;
         text-shadow: 0 0 10px #00ffcc, 0 0 20px #00ffcc, 0 0 40px #00ffcc;
-        margin-bottom: 30px;
+        margin-bottom: 20px;
     }
 
     .timer {
-        font-size: 7rem;
+        font-size: 5rem;
         letter-spacing: 10px;
         border: 3px solid #00ffcc;
-        padding: 30px 80px;
+        padding: 25px 60px;
         border-radius: 20px;
         box-shadow: 0 0 30px #00ffcc, 0 0 60px #00ffcc inset, 0 0 90px #00ffcc;
         animation: pulse 1.5s infinite alternate;
-        margin-bottom: 40px;
+        margin-bottom: 30px;
     }
 
     @keyframes pulse {
@@ -62,16 +62,33 @@
         100% { text-shadow: 0 0 40px #00ffcc, 0 0 80px #00ffcc; }
     }
 
+    .inputs {
+        margin-bottom: 20px;
+    }
+
+    .inputs input {
+        width: 70px;
+        font-size: 1.5rem;
+        padding: 8px 12px;
+        margin: 0 5px;
+        border-radius: 8px;
+        border: 2px solid #00ffcc;
+        background: #000;
+        color: #00ffcc;
+        text-align: center;
+    }
+
     .buttons {
         display: flex;
         justify-content: center;
-        gap: 25px;
+        gap: 20px;
+        margin-top: 10px;
     }
 
     button {
         font-family: 'Orbitron', monospace;
-        font-size: 1.5rem;
-        padding: 15px 35px;
+        font-size: 1.2rem;
+        padding: 12px 30px;
         border: 2px solid #00ffcc;
         border-radius: 12px;
         background: transparent;
@@ -94,8 +111,16 @@
 <div class="cyber-bg"></div>
 
 <div class="container">
-    <h1>⚡ AFTERMATH ENDING IN ⚡</h1>
+    <h1>⚡ Aftermath CTF TIMER ⚡</h1>
+
+    <div class="inputs">
+        <input type="number" id="hours" placeholder="HH" min="0" value="5">
+        <input type="number" id="minutes" placeholder="MM" min="0" max="59" value="0">
+        <input type="number" id="seconds" placeholder="SS" min="0" max="59" value="0">
+    </div>
+
     <div class="timer" id="timer">05:00:00</div>
+
     <div class="buttons">
         <button id="startBtn">Start</button>
         <button id="pauseBtn">Pause</button>
@@ -104,21 +129,20 @@
 </div>
 
 <script>
-    let timeLeft = 5 * 60 * 60; // 5 hours
+    let totalSeconds = 5*60*60;
     let countdown = null;
     const timerEl = document.getElementById('timer');
 
     function formatTime(seconds) {
-        const h = Math.floor(seconds / 3600).toString().padStart(2,'0');
+        const h = Math.floor(seconds/3600).toString().padStart(2,'0');
         const m = Math.floor((seconds % 3600)/60).toString().padStart(2,'0');
         const s = (seconds % 60).toString().padStart(2,'0');
         return `${h}:${m}:${s}`;
     }
 
     function updateTimer() {
-        timerEl.textContent = formatTime(timeLeft);
-        if (timeLeft <= 60) {
-            // last minute warning effect
+        timerEl.textContent = formatTime(totalSeconds);
+        if (totalSeconds <= 60) {
             timerEl.style.color = '#ff0033';
             timerEl.style.textShadow = '0 0 20px #ff0033, 0 0 40px #ff0033';
         } else {
@@ -130,8 +154,8 @@
     function startTimer() {
         if (!countdown) {
             countdown = setInterval(() => {
-                if (timeLeft > 0) {
-                    timeLeft--;
+                if (totalSeconds > 0) {
+                    totalSeconds--;
                     updateTimer();
                 } else {
                     clearInterval(countdown);
@@ -149,11 +173,14 @@
 
     function resetTimer() {
         pauseTimer();
-        timeLeft = 5 * 60 * 60;
+        const h = parseInt(document.getElementById('hours').value) || 0;
+        const m = parseInt(document.getElementById('minutes').value) || 0;
+        const s = parseInt(document.getElementById('seconds').value) || 0;
+        totalSeconds = h*3600 + m*60 + s;
         updateTimer();
     }
 
-    // Initialize display
+    // Initialize
     updateTimer();
 
     document.getElementById('startBtn').addEventListener('click', startTimer);
