@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . "/../includes/db.php";
 
-// Fetch leaderboard
+/* ===== FETCH LEADERBOARD ===== */
 $stmt = $pdo->query("
     SELECT u.id, u.username, u.score, COUNT(s.challenge_id) AS solved_count
     FROM users u
@@ -12,7 +12,7 @@ $stmt = $pdo->query("
 ");
 $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Online users
+/* ===== ONLINE USERS (LAST 5 MIN) ===== */
 $onlineStmt = $pdo->prepare("
     SELECT DISTINCT user_id 
     FROM user_activity 
@@ -229,14 +229,14 @@ td {
         </div>
 
         <div class="footer">
-            Live Cyber Arena • Auto Refresh
+            Live Cyber Arena • Refresh in <span id="refreshTimer">15</span>s
         </div>
 
     </div>
 </div>
 
 <script>
-// Soft parallax motion (calm)
+/* ===== SOFT PARALLAX ===== */
 const panel = document.getElementById('panel');
 let angle = 0;
 
@@ -246,8 +246,19 @@ setInterval(() => {
         `rotateX(${8 + Math.sin(angle)*1.5}deg) rotateY(${Math.cos(angle)*1.5}deg)`;
 }, 50);
 
-// Refresh data calmly
-setTimeout(() => location.reload(), 15000);
+/* ===== REFRESH COUNTDOWN ===== */
+let refreshTime = 15;
+const timerEl = document.getElementById('refreshTimer');
+
+const countdown = setInterval(() => {
+    refreshTime--;
+    timerEl.textContent = refreshTime;
+
+    if (refreshTime <= 0) {
+        clearInterval(countdown);
+        location.reload();
+    }
+}, 1000);
 </script>
 
 </body>
