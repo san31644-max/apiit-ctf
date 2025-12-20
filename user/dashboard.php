@@ -187,6 +187,99 @@ body{font-family:'Share Tech Mono', monospace;background:#0b0f12;color:#c9f7e4;o
 <p class="mt-2 text-sm text-gray-300">Prizes awarded to top 3 competitors on the leaderboard.</p>
 </div>
 
+<!-- ================== CTF WALKTHROUGH & RULES ================== -->
+<div class="card border-green-500">
+  <h2 class="section-title text-2xl">🚀 CTF Walkthrough & Game Rules</h2>
+
+  <!-- Walkthrough Steps -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
+
+    <div class="card">
+      <h3 class="text-green-400 font-bold text-lg mb-2">🧭 How the CTF Works</h3>
+      <ol class="list-decimal list-inside space-y-2 text-sm">
+        <li>Login to your dashboard and explore available challenges.</li>
+        <li>Solve challenges and submit flags in the correct format.</li>
+        <li>Each correct flag increases your score instantly.</li>
+        <li>Hints are optional but will deduct points.</li>
+        <li>Document every step for your final report.</li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <h3 class="text-green-400 font-bold text-lg mb-2">⏱️ Competition Timeline</h3>
+      <ul class="list-disc list-inside space-y-2 text-sm">
+        <li>🟢 CTF starts officially when the timer begins.</li>
+        <li>⏳ <strong>After 4 hours:</strong></li>
+        <ul class="ml-6 list-disc text-yellow-300">
+          <li>❌ Leaderboard will be hidden</li>
+          <li>❌ Hints section will be disabled</li>
+          <li>📄 Focus shifts to report preparation</li>
+        </ul>
+        <li>🏁 Final scores are locked after game end.</li>
+      </ul>
+    </div>
+
+  </div>
+
+  <!-- Scoring -->
+  <div class="card mt-6">
+    <h3 class="text-green-400 font-bold text-lg mb-2">🎯 Scoring Breakdown</h3>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-center mt-4">
+      <div class="prize-card" style="background:linear-gradient(145deg,#0ea5e9,#38bdf8);">
+        🧠 CTF Challenges<br>
+        <span class="text-3xl font-extrabold">1500 Points</span>
+      </div>
+      <div class="prize-card" style="background:linear-gradient(145deg,#8b5cf6,#a78bfa);">
+        📑 Technical Report<br>
+        <span class="text-3xl font-extrabold">500 Points</span>
+      </div>
+    </div>
+
+    <p class="mt-4 text-sm text-gray-300 text-center">
+      Maximum achievable score: <strong class="text-green-300">2000 points</strong>
+    </p>
+  </div>
+
+  <!-- Hints Notice -->
+  <div class="card mt-6 border-yellow-400">
+    <h3 class="text-yellow-300 font-bold text-lg mb-2">💡 Hint System Notice</h3>
+    <ul class="list-disc list-inside space-y-2 text-sm">
+      <li>Hints are available per challenge.</li>
+      <li>Each hint deducts a specific number of points.</li>
+      <li>Points are deducted only once per hint.</li>
+      <li>⚠️ Hints will be <strong>disabled after 4 hours</strong>.</li>
+    </ul>
+  </div>
+
+  <!-- Prohibited Actions -->
+  <div class="card mt-6 border-red-500 bg-red-950/30">
+    <h3 class="text-red-400 font-bold text-lg mb-2">⛔ Prohibited Actions (Zero Tolerance)</h3>
+
+    <ul class="list-disc list-inside space-y-2 text-sm text-red-300">
+      <li>Sharing flags, hints, or solutions with others.</li>
+      <li>Attacking the CTF infrastructure or platform.</li>
+      <li>Brute-forcing flags or automated flag submission.</li>
+      <li>Collaboration between teams or players.</li>
+      <li>Plagiarizing write-ups or reports.</li>
+      <li>Using leaked or pre-solved challenge material.</li>
+    </ul>
+
+    <p class="mt-3 text-sm text-red-400 font-semibold">
+      🚨 Violation of any rule may result in immediate disqualification.
+    </p>
+  </div>
+
+  <!-- Final Note -->
+  <div class="card mt-6">
+    <p class="text-green-300 text-sm text-center">
+      🧠 Focus on skill, ethics, and documentation.  
+      The final hour is for analysis & reporting — not racing the leaderboard.
+    </p>
+  </div>
+</div>
+<!-- ================== END CTF WALKTHROUGH ================== -->
+
 <!-- Challenge Categories -->
 <div>
 <h2 class="section-title">🕹️ Challenge Categories</h2>
