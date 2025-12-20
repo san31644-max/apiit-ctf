@@ -25,7 +25,7 @@ $onlineUsers = $onlineStmt->fetchAll(PDO::FETCH_COLUMN);
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>APIIT CTF | Cyber Arena</title>
+<title>AFTERMATH | Cyber Arena</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="https://cdn.tailwindcss.com"></script>
 
@@ -195,7 +195,7 @@ td {
     <div class="holo-panel" id="panel">
 
         <div class="header">
-            <h1>APIIT CTF — CYBER ARENA</h1>
+            <h1>AFTERMATH — CYBER ARENA</h1>
         </div>
 
         <div class="table-wrap">
@@ -229,7 +229,7 @@ td {
         </div>
 
         <div class="footer">
-            Live Cyber Arena • Refresh in <span id="refreshTimer">15</span>s
+            AFTERMATH LEADERBOARD • Refresh in <span id="refreshTimer">15</span>s
         </div>
 
     </div>
