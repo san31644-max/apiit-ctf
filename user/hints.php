@@ -4,7 +4,7 @@ require_once __DIR__ . "/../includes/db.php";
 require_once __DIR__ . "/../includes/logger.php";
 
 // Security: logged-in user
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'user') {
+if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'user') {
     header("Location: ../index.php");
     exit;
 }
@@ -12,7 +12,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'user') {
 $user_id = $_SESSION['user_id'];
 log_activity($pdo, $user_id, "Visited Hints Page", $_SERVER['REQUEST_URI']);
 
-// Fetch user's current score (note: your project uses 'score' column)
+// Fetch user's current score
 $stmt = $pdo->prepare("SELECT score FROM users WHERE id = ?");
 $stmt->execute([$user_id]);
 $user_score = $stmt->fetchColumn();
@@ -27,11 +27,8 @@ $stmt = $pdo->query("
 ");
 $hints = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Fetch which hints this user already viewed
-$stmt = $pdo->prepare("SELECT hint_id FROM hint_views WHERE user_id = ?");
-$stmt->execute([$user_id]);
-$viewedRows = $stmt->fetchAll(PDO::FETCH_COLUMN);
-$viewedMap = array_flip($viewedRows); // quick lookup
+// NOTE: We are intentionally NOT using hint_views to reveal content.
+// All hints are closed because hint time period is over.
 ?>
 <!doctype html>
 <html lang="en">
@@ -52,24 +49,24 @@ body { font-family: 'Source Code Pro', monospace; background:#0b0f12; color:#c9f
 .badge-challenge { background:rgba(45,226,138,0.12); color:#2de28a; border:1px solid rgba(45,226,138,0.25); }
 button { background:#2de28a; color:#000; font-weight:bold; padding:8px 12px; border:none; border-radius:6px; cursor:pointer; transition:0.2s; }
 button:hover { background:#1ab66b; }
+button:disabled { background: rgba(45,226,138,0.20); color:#8fecc3; cursor:not-allowed; }
 .hint-content { display:none; margin-top:12px; background: rgba(0,255,0,0.03); padding:12px; border-left:3px solid #2de28a; border-radius:6px; font-size:0.95rem; color:#b6f7d3; }
-.viewed { display:block !important; }
 .header-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; gap:12px; }
 .score-pill { background: rgba(45,226,138,0.12); padding:6px 10px; border-radius:8px; font-weight:700; color:#2de28a; border:1px solid rgba(45,226,138,0.18); }
+.notice { background: rgba(255, 80, 80, 0.08); border: 1px solid rgba(255, 80, 80, 0.25); color: #ffb3b3; padding: 12px; border-radius: 10px; margin-bottom: 18px; }
 </style>
 </head>
 <body class="h-screen flex">
 
 <!-- Sidebar -->
-<div class="sidebar">
-    <h2 class="text-green-400 text-xl font-bold p-4 border-b border-green-500">APIIT CTF</h2>
-    <a href="dashboard.php">🏠 Dashboard</a>
-    <a href="challenges.php">🛠 Challenges</a>
-    <a href="leaderboard.php">🏆 Leaderboard</a>
-    <a href="instructions.php" class="bg-green-900">📖 Instructions</a>
-    <a href="hints.php">💡 Hints</a>
-    <a href="profile.php">👤 Profile</a>
-    <a href="../logout.php" class="text-red-400">🚪 Logout</a>
+<div class="sidebar w-64 p-4">
+  <h2 class="text-green-400 text-xl font-bold p-4 border-b border-green-500">APIIT CTF</h2>
+  <a href="dashboard.php">🏠 Dashboard</a>
+  <a href="challenges.php">🛠 Challenges</a>
+  <a href="leaderboard.php">🏆 Leaderboard</a>
+  <a href="profile.php">👤 Profile</a>
+  <a href="hints.php">💡 Hints</a>
+  <a href="../logout.php" class="text-red-400">🚪 Logout</a>
 </div>
 
 <!-- Main -->
@@ -79,91 +76,46 @@ button:hover { background:#1ab66b; }
     <div class="score-pill">Your Score: <span id="user-score"><?= (int)$user_score ?></span> pts</div>
   </div>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-    <?php foreach($hints as $h): 
-        $already = isset($viewedMap[$h['id']]);
-    ?>
-    <div class="card" id="card-<?= $h['id'] ?>">
-      <h2 class="text-xl text-green-300 font-bold"><?= htmlspecialchars($h['title']) ?></h2>
-      <div class="mb-3">
-        <span class="badge badge-points"><?= (int)$h['point_cost'] ?> pts</span>
-        <?php if (!empty($h['challenge_title'])): ?>
-          <span class="badge badge-challenge">Related: <?= htmlspecialchars($h['challenge_title']) ?></span>
-        <?php else: ?>
-          <span class="badge badge-challenge">General Hint</span>
-        <?php endif; ?>
-      </div>
+  <!-- Global notice -->
+  <div class="notice">
+    ⏳ <b>Hint time period is over.</b> Hints are no longer available to view.
+  </div>
 
-      <?php if ($already): ?>
-        <div class="hint-content viewed" id="hint-<?= $h['id'] ?>"><?= nl2br(htmlspecialchars($h['content'])) ?></div>
-        <div class="mt-3"><button disabled>Viewed</button></div>
-      <?php else: ?>
-        <div class="mt-2">
-          <button class="view-hint" data-id="<?= $h['id'] ?>" data-cost="<?= (int)$h['point_cost'] ?>">View Hint (Cost: <?= (int)$h['point_cost'] ?> pts)</button>
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <?php foreach($hints as $h): ?>
+      <div class="card" id="card-<?= (int)$h['id'] ?>">
+        <h2 class="text-xl text-green-300 font-bold"><?= htmlspecialchars($h['title']) ?></h2>
+
+        <div class="mb-3">
+          <span class="badge badge-points"><?= (int)$h['point_cost'] ?> pts</span>
+          <?php if (!empty($h['challenge_title'])): ?>
+            <span class="badge badge-challenge">Related: <?= htmlspecialchars($h['challenge_title']) ?></span>
+          <?php else: ?>
+            <span class="badge badge-challenge">General Hint</span>
+          <?php endif; ?>
         </div>
-        <div class="hint-content" id="hint-<?= $h['id'] ?>"></div>
-      <?php endif; ?>
-      <small class="block mt-3 text-gray-500">Added on <?= htmlspecialchars($h['created_at']) ?></small>
-    </div>
+
+        <!-- Always closed: don't render content even if previously viewed -->
+        <div class="hint-content" id="hint-<?= (int)$h['id'] ?>"></div>
+
+        <div class="mt-3">
+          <button type="button" class="view-hint" disabled>
+            Hint Closed (Time period over)
+          </button>
+        </div>
+
+        <small class="block mt-3 text-gray-500">Added on <?= htmlspecialchars($h['created_at']) ?></small>
+      </div>
     <?php endforeach; ?>
   </div>
 </div>
 
 <script>
-// helper to escape HTML
-function escapeHtml(unsafe) {
-    return unsafe
-         .replace(/&/g, "&amp;")
-         .replace(/</g, "&lt;")
-         .replace(/>/g, "&gt;")
-         .replace(/"/g, "&quot;")
-         .replace(/'/g, "&#039;");
-}
-
+// Even if someone removes "disabled" via devtools, block clicks:
 document.querySelectorAll('.view-hint').forEach(btn => {
-    btn.addEventListener('click', function() {
-        const hintId = this.dataset.id;
-        const cost = parseInt(this.dataset.cost, 10);
-        const hintDiv = document.getElementById('hint-' + hintId);
-        const card = document.getElementById('card-' + hintId);
-        const scoreEl = document.getElementById('user-score');
-
-        // disable button while processing
-        btn.disabled = true;
-        btn.innerText = 'Processing...';
-
-        fetch('view_hint.php', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ hint_id: hintId })
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.success) {
-                // set new score
-                scoreEl.innerText = data.new_score;
-
-                // show content safely (escape + newlines -> <br>)
-                const safe = escapeHtml(data.content || '');
-                hintDiv.innerHTML = safe.replace(/\n/g, '<br>');
-                hintDiv.classList.add('viewed');
-
-                // update button
-                btn.innerText = 'Viewed';
-                btn.disabled = true;
-            } else {
-                alert(data.message || 'Could not show hint');
-                btn.disabled = false;
-                btn.innerText = `View Hint (Cost: ${cost} pts)`;
-            }
-        })
-        .catch(err => {
-            console.error(err);
-            alert('Request failed — check console');
-            btn.disabled = false;
-            btn.innerText = `View Hint (Cost: ${cost} pts)`;
-        });
-    });
+  btn.addEventListener('click', function () {
+    alert("Hint time period is over.");
+  });
 });
 </script>
 
