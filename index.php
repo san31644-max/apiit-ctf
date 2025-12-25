@@ -1,4 +1,12 @@
 <?php
+require_once __DIR__ . "/includes/ip_logger_file.php";
+
+// If you're behind Nginx reverse proxy / Cloudflare, add proxy IPs here.
+// If not, keep empty.
+$trustedProxies = [];
+
+log_ip_to_file((int)$_SESSION['user_id'], (string)$_SESSION['username'], (string)$_SESSION['role'], 'login', $trustedProxies);
+
 session_set_cookie_params([
   'lifetime' => 0,
   'path' => '/',
