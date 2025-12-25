@@ -113,16 +113,11 @@ $allChallenges = $pdo->query("
   ORDER BY category_id ASC, points DESC, id DESC
 ")->fetchAll(PDO::FETCH_ASSOC);
 
-// Group challenges by category
-$challengesByCategory = [];
-foreach ($allChallenges as $c) {
-  $catId = (int)$c['category_id'];
-  if (!isset($challengesByCategory[$catId])) $challengesByCategory[$catId] = [];
-  $challengesByCategory[$catId][] = $c;
-}
-
 $totalChallenges = count($allChallenges);
 $solvedCount = count($solvedIds);
+
+/* ✅ ALL SOLVED MODE */
+$allSolved = ($totalChallenges > 0 && $solvedCount >= $totalChallenges);
 ?>
 <!doctype html>
 <html lang="en">
@@ -143,6 +138,28 @@ $solvedCount = count($solvedIds);
 }
 html,body{height:100%;}
 body{margin:0;color:var(--text);background:#000;overflow-x:hidden;}
+
+/* ===== ALL SOLVED GLOBAL GLOW MODE ===== */
+body.ascended{
+  filter:saturate(1.08) contrast(1.06);
+}
+body.ascended::before{
+  content:"";
+  position:fixed; inset:-20%;
+  pointer-events:none;
+  z-index:-1;
+  background:
+    radial-gradient(900px 600px at 30% 20%, rgba(245,210,123,0.16), transparent 65%),
+    radial-gradient(1200px 800px at 70% 30%, rgba(56,247,255,0.18), transparent 62%),
+    radial-gradient(1100px 900px at 50% 90%, rgba(0,209,184,0.14), transparent 65%);
+  filter: blur(18px);
+  opacity:0.9;
+  animation: ascendGlow 8s ease-in-out infinite alternate;
+}
+@keyframes ascendGlow{
+  from{ transform: translate(-1%,-1%) scale(1.02); }
+  to  { transform: translate( 1%, 1%) scale(1.06); }
+}
 
 /* Video BG */
 .video-bg{position:fixed; inset:0; z-index:-6; overflow:hidden; background:#00101f;}
@@ -166,6 +183,9 @@ body{margin:0;color:var(--text);background:#000;overflow-x:hidden;}
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E");
 }
 
+/* Ascension particles canvas */
+#ascendFX{position:fixed; inset:0; z-index:50; pointer-events:none; display:none;}
+
 /* Layout */
 .shell{min-height:100vh; display:flex;}
 .sidebar{
@@ -175,6 +195,11 @@ body{margin:0;color:var(--text);background:#000;overflow-x:hidden;}
   border-right:1px solid rgba(56,247,255,0.16);
   box-shadow: 0 0 60px rgba(56,247,255,0.10);
   font-family:'Share Tech Mono', monospace;
+  transition: .25s ease;
+}
+body.ascended .sidebar{
+  border-right-color: rgba(245,210,123,0.35);
+  box-shadow: 0 0 90px rgba(245,210,123,0.12), 0 0 70px rgba(56,247,255,0.10);
 }
 .brand{padding:18px 16px;border-bottom:1px solid rgba(56,247,255,0.16);}
 .brand .t{font-family:'Cinzel',serif;font-weight:900;letter-spacing:.16em;color:rgba(56,247,255,0.95);text-shadow:0 0 18px rgba(56,247,255,0.30);}
@@ -193,8 +218,22 @@ body{margin:0;color:var(--text);background:#000;overflow-x:hidden;}
   border: 1px solid rgba(56,247,255,0.18);
   box-shadow: 0 0 55px rgba(56,247,255,0.12), inset 0 0 18px rgba(255,255,255,0.05);
   border-radius: 22px;
+  transition:.25s ease;
 }
+body.ascended .panel{
+  border-color: rgba(245,210,123,0.30);
+  box-shadow: 0 0 65px rgba(245,210,123,0.10), 0 0 50px rgba(56,247,255,0.10), inset 0 0 18px rgba(255,255,255,0.05);
+}
+body.ascended .panel.pulse{
+  animation: panelPulse 1.9s ease-in-out infinite alternate;
+}
+@keyframes panelPulse{
+  from{ transform: translateY(0); }
+  to{ transform: translateY(-2px); }
+}
+
 .h1{font-family:'Cinzel',serif;font-weight:900;letter-spacing:.14em;color:rgba(56,247,255,0.92);text-shadow:0 0 18px rgba(56,247,255,0.22);}
+body.ascended .h1{ color: rgba(245,210,123,0.95); text-shadow: 0 0 22px rgba(245,210,123,0.20), 0 0 18px rgba(56,247,255,0.18); }
 .mono{font-family:'Share Tech Mono', monospace;}
 .small{font-size:12px;color:rgba(230,250,255,0.72);}
 
@@ -202,6 +241,7 @@ body{margin:0;color:var(--text);background:#000;overflow-x:hidden;}
   border:1px solid rgba(56,247,255,0.18);background:rgba(255,255,255,0.04);
   font-family:'Share Tech Mono', monospace;font-weight:900;letter-spacing:.10em;}
 .pill b{color:rgba(245,210,123,0.95);}
+body.ascended .pill{border-color: rgba(245,210,123,0.30); background: rgba(245,210,123,0.06);}
 
 .alert{border-radius:18px;border:1px solid rgba(56,247,255,0.18);background:rgba(0,14,24,0.40);padding:12px 14px;
   font-family:'Share Tech Mono', monospace;letter-spacing:.06em;}
@@ -228,9 +268,18 @@ body{margin:0;color:var(--text);background:#000;overflow-x:hidden;}
 .catBtn.active{border-color: rgba(245,210,123,0.35); background: rgba(245,210,123,0.08); color: rgba(245,210,123,0.95);}
 .catBtn .count{font-size:12px;color: rgba(230,250,255,0.72);}
 
+body.ascended .catBtn{
+  border-color: rgba(245,210,123,0.22);
+  box-shadow: 0 0 18px rgba(245,210,123,0.08);
+}
+body.ascended .catBtn.active{
+  border-color: rgba(245,210,123,0.50);
+  background: rgba(245,210,123,0.10);
+  box-shadow: 0 0 30px rgba(245,210,123,0.10), 0 0 22px rgba(56,247,255,0.10);
+}
+
 .hiddenArea{
-  display:grid;
-  place-items:center;
+  display:grid; place-items:center;
   min-height:220px;
   border-radius:22px;
   border:1px dashed rgba(56,247,255,0.20);
@@ -245,6 +294,7 @@ body{margin:0;color:var(--text);background:#000;overflow-x:hidden;}
 .chWrap{display:none;}
 .chHeader{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
 .chHeader .t{font-family:'Cinzel',serif;font-weight:900;letter-spacing:.12em;color:rgba(56,247,255,0.92);text-shadow:0 0 18px rgba(56,247,255,0.22);}
+body.ascended .chHeader .t{ color: rgba(245,210,123,0.95); }
 .chHeader .d{font-size:12px;color:rgba(230,250,255,0.70);}
 
 .chCard{
@@ -254,7 +304,18 @@ body{margin:0;color:var(--text);background:#000;overflow-x:hidden;}
   box-shadow: 0 0 calc(var(--g)*22px) rgba(56,247,255,0.22), inset 0 0 18px rgba(255,255,255,0.03);
   padding:16px; transition:.12s linear; overflow:hidden;
 }
+body.ascended .chCard{
+  border-color: rgba(245,210,123,0.26);
+  box-shadow: 0 0 calc(var(--g)*28px) rgba(245,210,123,0.18), 0 0 calc(var(--g)*18px) rgba(56,247,255,0.18), inset 0 0 18px rgba(255,255,255,0.03);
+  animation: cardAura 2.1s ease-in-out infinite alternate;
+}
+@keyframes cardAura{
+  from{ transform: translateY(0); }
+  to{ transform: translateY(-2px); }
+}
+
 .chTitle{font-family:'Cinzel',serif;font-weight:900;color:rgba(230,250,255,0.96);letter-spacing:.06em;}
+body.ascended .chTitle{ color: rgba(245,210,123,0.96); text-shadow: 0 0 16px rgba(245,210,123,0.12); }
 .chDesc{margin-top:10px;color:rgba(230,250,255,0.78);font-family:'Share Tech Mono', monospace;font-size:12px;line-height:1.45;}
 .badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;}
 .badge{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;border:1px solid rgba(255,255,255,0.10);
@@ -282,10 +343,85 @@ body{margin:0;color:var(--text);background:#000;overflow-x:hidden;}
   .sidebar{position:static;width:100%;height:auto;}
   .main{margin-left:0;width:100%;}
 }
+
+/* ===== Victory Overlay ===== */
+.victory{
+  position:fixed; inset:0;
+  z-index:60;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:20px;
+  background: radial-gradient(900px 700px at 50% 35%, rgba(245,210,123,0.14), transparent 60%),
+              radial-gradient(900px 700px at 55% 45%, rgba(56,247,255,0.12), transparent 62%),
+              rgba(0,0,0,0.48);
+  backdrop-filter: blur(10px);
+}
+.victory .box{
+  max-width:820px;
+  width:100%;
+  border-radius:26px;
+  border:1px solid rgba(245,210,123,0.34);
+  background: rgba(0,14,24,0.55);
+  box-shadow: 0 0 90px rgba(245,210,123,0.12), 0 0 55px rgba(56,247,255,0.12);
+  padding:22px;
+  text-align:center;
+}
+.victory .title{
+  font-family:'Cinzel',serif;
+  font-weight:900;
+  letter-spacing:.18em;
+  color: rgba(245,210,123,0.98);
+  text-shadow: 0 0 18px rgba(245,210,123,0.18), 0 0 16px rgba(56,247,255,0.14);
+  font-size: clamp(22px, 3.2vw, 40px);
+}
+.victory .sub{
+  margin-top:10px;
+  color: rgba(230,250,255,0.86);
+  letter-spacing:.08em;
+  font-size: 13px;
+}
+.victory .badgeRow{
+  margin-top:16px;
+  display:flex;
+  justify-content:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.victory .chip{
+  display:inline-flex; gap:10px; align-items:center;
+  padding:10px 12px;
+  border-radius:999px;
+  border:1px solid rgba(56,247,255,0.20);
+  background: rgba(255,255,255,0.05);
+  font-weight:900;
+  letter-spacing:.10em;
+  font-family:'Share Tech Mono', monospace;
+}
+.victory .chip b{ color: rgba(245,210,123,0.95); }
+.victory .btnX{
+  margin-top:18px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  padding:10px 14px;
+  border-radius:14px;
+  border:1px solid rgba(56,247,255,0.22);
+  background: linear-gradient(90deg, rgba(245,210,123,0.75), rgba(56,247,255,0.70));
+  color:#00131f;
+  font-family:'Share Tech Mono', monospace;
+  font-weight:900;
+  letter-spacing:.10em;
+  transition:.22s;
+}
+.victory .btnX:hover{ transform: translateY(-1px); box-shadow:0 0 26px rgba(245,210,123,0.18); }
 </style>
 </head>
 
-<body>
+<body class="<?= $allSolved ? 'ascended' : '' ?>">
+<canvas id="ascendFX"></canvas>
+
 <div class="video-bg">
   <video autoplay muted loop playsinline preload="auto">
     <source src="../assets/atlantis.mp4" type="video/mp4">
@@ -295,6 +431,24 @@ body{margin:0;color:var(--text);background:#000;overflow-x:hidden;}
 <div class="caustics"></div>
 <div class="scanlines"></div>
 <div class="grain"></div>
+
+<!-- Victory Overlay -->
+<div class="victory" id="victory">
+  <div class="box">
+    <div class="title">🔱 ATLANTIS ASCENDED</div>
+    <div class="sub">
+      All challenge chambers are cleared. The temple recognizes your mastery.
+    </div>
+
+    <div class="badgeRow">
+      <div class="chip">TOTAL <b><?= (int)$totalChallenges ?></b></div>
+      <div class="chip">SOLVED <b><?= (int)$solvedCount ?></b></div>
+      <div class="chip">STATUS <b>COMPLETE</b></div>
+    </div>
+
+    <button class="btnX" id="closeVictory">CONTINUE EXPLORING →</button>
+  </div>
+</div>
 
 <div class="shell">
   <aside class="sidebar">
@@ -313,16 +467,21 @@ body{margin:0;color:var(--text);background:#000;overflow-x:hidden;}
   </aside>
 
   <main class="main space-y-6">
-    <section class="panel p-6">
+    <section class="panel p-6 <?= $allSolved ? 'pulse' : '' ?>">
       <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
         <div>
           <div class="h1 text-2xl md:text-3xl">🛠 ATLANTIS CHALLENGE TEMPLE</div>
-          <div class="mono small mt-2">Select a category → challenges appear</div>
+          <div class="mono small mt-2">
+            Select a category → challenges appear
+            <?php if($allSolved): ?>
+              • <span style="color:rgba(245,210,123,0.95);font-weight:900;">ASCENDED MODE ACTIVE</span>
+            <?php endif; ?>
+          </div>
         </div>
         <div class="flex flex-wrap gap-2">
           <span class="pill">TOTAL: <b><?= (int)$totalChallenges ?></b></span>
           <span class="pill">SOLVED: <b><?= (int)$solvedCount ?></b></span>
-          <span class="pill">STATUS: <b><?= $ctfEnded ? 'SEALED' : 'OPEN' ?></b></span>
+          <span class="pill">STATUS: <b><?= $ctfEnded ? 'SEALED' : ($allSolved ? 'COMPLETE' : 'OPEN') ?></b></span>
         </div>
       </div>
     </section>
@@ -333,7 +492,7 @@ body{margin:0;color:var(--text);background:#000;overflow-x:hidden;}
 
     <section class="grid2">
       <!-- LEFT: categories ONLY -->
-      <div class="panel p-5">
+      <div class="panel p-5 <?= $allSolved ? 'pulse' : '' ?>">
         <div class="h1 text-lg">🔱 CATEGORIES</div>
         <div class="mono small mt-2">Choose one to reveal challenges</div>
 
@@ -354,7 +513,7 @@ body{margin:0;color:var(--text);background:#000;overflow-x:hidden;}
       </div>
 
       <!-- RIGHT: challenges hidden until category click -->
-      <div class="panel p-5">
+      <div class="panel p-5 <?= $allSolved ? 'pulse' : '' ?>">
         <div id="emptyState" class="hiddenArea">
           <div>
             <div style="font-family:'Cinzel',serif;font-weight:900;letter-spacing:.14em;color:rgba(56,247,255,0.92);">
@@ -446,7 +605,7 @@ body{margin:0;color:var(--text);background:#000;overflow-x:hidden;}
 </div>
 
 <script>
-// Glow on cards
+/* ===== Glow on visible cards (mouse proximity) ===== */
 const chCards = document.querySelectorAll('.chCard');
 document.addEventListener('mousemove', (e)=>{
   chCards.forEach(c=>{
@@ -460,7 +619,7 @@ document.addEventListener('mousemove', (e)=>{
   });
 });
 
-// Category click → show only that category challenges
+/* ===== Category click → show only that category challenges ===== */
 const catBtns = document.querySelectorAll('.catBtn');
 const emptyState = document.getElementById('emptyState');
 const challengeArea = document.getElementById('challengeArea');
@@ -468,37 +627,135 @@ const catTitle = document.getElementById('catTitle');
 const catDesc = document.getElementById('catDesc');
 
 function showCategory(catId, name, desc){
-  // show right panel content
   emptyState.style.display = 'none';
   challengeArea.style.display = 'block';
-
-  // set header
   catTitle.textContent = name || 'CATEGORY';
   catDesc.textContent = desc || '';
 
-  // filter cards
   chCards.forEach(card=>{
     card.style.display = (card.dataset.cat === String(catId)) ? 'block' : 'none';
   });
 
-  // active highlight
   catBtns.forEach(b=>b.classList.remove('active'));
   const activeBtn = [...catBtns].find(b => b.dataset.cat === String(catId));
   if (activeBtn) activeBtn.classList.add('active');
 
-  // scroll to right on small screens
   document.getElementById('cards').scrollIntoView({behavior:'smooth', block:'start'});
 }
 
 catBtns.forEach(btn=>{
   btn.addEventListener('click', ()=>{
-    showCategory(
-      btn.dataset.cat,
-      btn.dataset.name,
-      btn.dataset.desc
-    );
+    showCategory(btn.dataset.cat, btn.dataset.name, btn.dataset.desc);
   });
 });
+
+/* ===== ASCENSION EFFECT (only if all solved) ===== */
+const ALL_SOLVED = <?= $allSolved ? 'true' : 'false' ?>;
+
+const victory = document.getElementById('victory');
+const closeVictory = document.getElementById('closeVictory');
+
+const fx = document.getElementById('ascendFX');
+const ftx = fx.getContext('2d', { alpha:true });
+
+let FW=0,FH=0, sparks=[], running=false;
+
+function fxResize(){
+  FW = fx.width = window.innerWidth;
+  FH = fx.height = window.innerHeight;
+}
+window.addEventListener('resize', fxResize);
+fxResize();
+
+function rnd(a,b){ return Math.random()*(b-a)+a; }
+
+function spawnSparks(n=120){
+  sparks = [];
+  for(let i=0;i<n;i++){
+    sparks.push({
+      x: rnd(0,FW),
+      y: rnd(FH*0.65, FH+40),
+      vx: rnd(-0.35,0.35),
+      vy: rnd(-2.8,-1.1),
+      r: rnd(1.2, 3.9),
+      a: rnd(0.18,0.55),
+      life: rnd(60, 220),
+      hue: Math.random()<0.5 ? 'aqua' : 'gold'
+    });
+  }
+}
+
+function drawFX(){
+  if(!running) return;
+  ftx.clearRect(0,0,FW,FH);
+
+  // soft vignette
+  ftx.fillStyle = "rgba(0,0,0,0.10)";
+  ftx.fillRect(0,0,FW,FH);
+
+  for(const p of sparks){
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy -= 0.002; // small accel upward
+    p.life -= 1;
+
+    const col = (p.hue === 'gold')
+      ? `rgba(245,210,123,${p.a})`
+      : `rgba(56,247,255,${p.a})`;
+
+    ftx.beginPath();
+    ftx.arc(p.x,p.y,p.r,0,Math.PI*2);
+    ftx.fillStyle = col;
+    ftx.fill();
+
+    // tail
+    ftx.beginPath();
+    ftx.moveTo(p.x,p.y);
+    ftx.lineTo(p.x - p.vx*12, p.y - p.vy*3);
+    ftx.strokeStyle = (p.hue === 'gold')
+      ? `rgba(245,210,123,${p.a*0.55})`
+      : `rgba(56,247,255,${p.a*0.55})`;
+    ftx.lineWidth = 1;
+    ftx.stroke();
+
+    if(p.life <= 0 || p.y < -50){
+      p.x = rnd(0,FW);
+      p.y = rnd(FH*0.65, FH+40);
+      p.vx = rnd(-0.35,0.35);
+      p.vy = rnd(-2.8,-1.1);
+      p.r  = rnd(1.2, 3.9);
+      p.a  = rnd(0.18,0.55);
+      p.life = rnd(60, 220);
+      p.hue = Math.random()<0.5 ? 'aqua' : 'gold';
+    }
+  }
+
+  requestAnimationFrame(drawFX);
+}
+
+function startAscension(){
+  fx.style.display = 'block';
+  victory.style.display = 'flex';
+  running = true;
+  spawnSparks(160);
+  drawFX();
+}
+
+function stopAscension(){
+  victory.style.display = 'none';
+  fx.style.display = 'none';
+  running = false;
+  sparks = [];
+  ftx.clearRect(0,0,FW,FH);
+}
+
+if(ALL_SOLVED){
+  // auto-start once
+  startAscension();
+}
+
+closeVictory?.addEventListener('click', stopAscension);
+victory?.addEventListener('click', (e)=>{ if(e.target === victory) stopAscension(); });
 </script>
 
 </body>
