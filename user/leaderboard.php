@@ -14,7 +14,7 @@ function h($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 $userId   = (int)($_SESSION['user_id'] ?? 0);
 $username = $_SESSION['username'] ?? 'Explorer';
 
-$limit = 60; // top N
+$limit = 60; // top N (including podium)
 $rows = [];
 $useWindow = true;
 
@@ -60,12 +60,11 @@ if (!$useWindow) {
 /* ===== Current user score ===== */
 $myScore = 0;
 try {
-  $stmt = $pdo->prepare("SELECT COALESCE(score,0), username FROM users WHERE id=:id LIMIT 1");
+  $stmt = $pdo->prepare("SELECT COALESCE(score,0) AS score, username FROM users WHERE id=:id LIMIT 1");
   $stmt->execute(['id' => $userId]);
   $meRow = $stmt->fetch(PDO::FETCH_ASSOC);
   if ($meRow) {
-    $myScore = (int)$meRow['COALESCE(score,0)'] ?? (int)($meRow['score'] ?? 0);
-    // ensure tie-break username matches DB
+    $myScore = (int)($meRow['score'] ?? 0);
     $username = $meRow['username'] ?? $username;
   }
 } catch (Exception $e) {
@@ -98,10 +97,13 @@ try {
   $totalPlayers = 0;
 }
 
-/* ===== Podium ===== */
+/* ===== Podium (Top 3) ===== */
 $top1 = $rows[0] ?? null;
 $top2 = $rows[1] ?? null;
 $top3 = $rows[2] ?? null;
+
+/* ===== Grid should start from place 4 ===== */
+$gridRows = array_slice($rows, 3); // remove first 3
 ?>
 <!doctype html>
 <html lang="en">
@@ -127,7 +129,6 @@ $top3 = $rows[2] ?? null;
 
   --glass: rgba(3, 23, 42, 0.44);
   --stroke: rgba(56,247,255,0.20);
-  --stroke2: rgba(56,247,255,0.36);
   --shadow: rgba(56,247,255,0.12);
 }
 
@@ -199,7 +200,6 @@ body{
   to  { transform: translate( 1%,  1%) scale(1.05); }
 }
 
-/* bubbles canvas */
 #bubbles{
   position:fixed; inset:0;
   z-index:-2;
@@ -218,59 +218,17 @@ body{
   overflow:hidden;
   z-index:20;
 }
-.sidebar::before{
-  content:"";
-  position:absolute;
-  top:-20%; bottom:-20%;
-  right:-1px;
-  width:2px;
-  background: linear-gradient(180deg, transparent, rgba(56,247,255,0.75), transparent);
-  opacity:0.75;
-}
-.sidebar::after{
-  content:"";
-  position:absolute; inset:-40%;
-  background:
-    radial-gradient(circle at 30% 30%, rgba(56,247,255,0.08), transparent 45%),
-    radial-gradient(circle at 70% 55%, rgba(0,209,184,0.07), transparent 55%);
-  filter: blur(12px);
-  opacity:0.55;
-  animation: sidebarGlow 10s ease-in-out infinite alternate;
-  pointer-events:none;
-}
-@keyframes sidebarGlow{
-  from{ transform: translate(-2%,-1%) scale(1.02); }
-  to  { transform: translate( 2%, 1%) scale(1.06); }
-}
-
-.sidebar h2{
-  font-family:'Cinzel',serif;
-  letter-spacing:0.10em;
-  text-shadow: 0 0 18px rgba(56,247,255,0.22);
-}
 .sidebar a{
   display:block;
   padding:12px 14px;
   color: rgba(226,232,240,0.92);
   border-bottom:1px solid rgba(255,255,255,0.06);
   transition:0.25s ease;
-  position:relative;
-  z-index:1;
-}
-.sidebar a::after{
-  content:"";
-  position:absolute;
-  left:0; top:0; bottom:0;
-  width:0px;
-  background: linear-gradient(180deg, transparent, rgba(56,247,255,0.35), transparent);
-  transition:0.25s ease;
 }
 .sidebar a:hover{
   background: rgba(56,247,255,0.08);
   color: var(--aqua);
-  text-shadow: 0 0 14px rgba(56,247,255,0.16);
 }
-.sidebar a:hover::after{ width:4px; }
 
 .main{ margin-left:16rem; min-height:100vh; }
 .wrap{ max-width:1200px; margin:0 auto; padding:26px; }
@@ -326,14 +284,7 @@ body{
   min-height:150px;
   box-shadow: inset 0 0 18px rgba(255,255,255,0.03);
   transition:.25s ease;
-  transform: translateY(10px);
-  opacity:0;
-  animation: rise .7s ease forwards;
 }
-.pod:nth-child(1){animation-delay:.05s}
-.pod:nth-child(2){animation-delay:.12s}
-.pod:nth-child(3){animation-delay:.20s}
-@keyframes rise{ to{ transform: translateY(0); opacity:1; } }
 .pod:hover{ transform: translateY(-3px); border-color:rgba(56,247,255,0.32); box-shadow:0 0 26px rgba(56,247,255,0.14), inset 0 0 18px rgba(255,255,255,0.04); }
 .pod::after{
   content:"";
@@ -362,12 +313,6 @@ body{
   overflow:hidden;
   position:relative;
   transform: perspective(900px) rotateX(var(--rx)) rotateY(var(--ry));
-}
-.gridCard::before{
-  content:"";
-  position:absolute; inset:auto -60px -70px auto;
-  width:170px;height:170px;
-  background: radial-gradient(circle, rgba(56,247,255,0.16), transparent 62%);
 }
 .gridCard .top{display:flex;align-items:center;justify-content:space-between;gap:10px;}
 .pill{
@@ -429,7 +374,7 @@ body{
       <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
         <div>
           <div class="h1 text-2xl md:text-3xl">🏆 ATLANTIS LEADERBOARD</div>
-          <div class="small mt-2">UNIQUE PLACES • TOTAL PLAYERS: <?= (int)$totalPlayers ?></div>
+          <div class="small mt-2">PODIUM = TOP 3 • GRID STARTS FROM #4 • TOTAL PLAYERS: <?= (int)$totalPlayers ?></div>
         </div>
         <div class="small text-right">
           YOU: <b style="color:rgba(245,210,123,0.95);"><?= h($username) ?></b><br>
@@ -445,7 +390,7 @@ body{
       </div>
     </div>
 
-    <!-- Podium -->
+    <!-- Podium (ONLY 1/2/3 shown here) -->
     <div class="panel p-6">
       <div class="h1 text-xl">THE TRIDENT PODIUM</div>
       <div class="small mt-2">Top 3 explorers in the depths</div>
@@ -453,8 +398,8 @@ body{
       <div class="podium">
         <?php
           $pod = [
-            ['#2','🥈', $top2],
             ['#1','👑', $top1],
+            ['#2','🥈', $top2],
             ['#3','🥉', $top3],
           ];
           foreach($pod as $p):
@@ -469,13 +414,13 @@ body{
       </div>
     </div>
 
-    <!-- Grid -->
+    <!-- Grid (STARTS FROM PLACE 4) -->
     <div class="panel p-6">
-      <div class="h1 text-xl">TOP <?= (int)$limit ?> RANKS</div>
-      <div class="small mt-2">Hover to glow + tilt • Search filters instantly • Your card is highlighted</div>
+      <div class="h1 text-xl">RANKS #4 → #<?= (int)$limit ?></div>
+      <div class="small mt-2">Hover to glow + tilt • Search filters instantly • Your card is highlighted (if not in podium)</div>
 
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-6" id="gridCards">
-        <?php foreach ($rows as $r): ?>
+        <?php foreach ($gridRows as $r): ?>
           <?php $isMe = ((int)$r['id'] === $userId); ?>
           <div class="gridCard <?= $isMe ? 'me' : '' ?>"
                data-name="<?= h(strtolower($r['username'])) ?>"
@@ -491,8 +436,8 @@ body{
         <?php endforeach; ?>
       </div>
 
-      <?php if (empty($rows)): ?>
-        <div class="small mt-6">No leaderboard data found (users.role='user').</div>
+      <?php if (empty($gridRows)): ?>
+        <div class="small mt-6">Not enough players to show ranks beyond #3.</div>
       <?php endif; ?>
     </div>
 
@@ -596,6 +541,9 @@ document.getElementById('jumpMe').addEventListener('click', ()=>{
       me.style.borderColor = '';
       me.style.boxShadow = '';
     }, 900);
+  } else {
+    // if user is in podium, scroll to top instead
+    window.scrollTo({top:0, behavior:'smooth'});
   }
 });
 
