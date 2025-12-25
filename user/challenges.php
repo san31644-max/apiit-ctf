@@ -7,8 +7,6 @@ require_once __DIR__ . "/../includes/logger.php";
 require_once __DIR__ . "/../includes/page_guard_json.php";
 guard_page_json('challenges');
 
-
-
 if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'user') {
   header("Location: ../index.php");
   exit;
@@ -90,7 +88,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['challenge_id'], $_POS
 
 /* =========================
    FETCH DATA
-   - ONLY categories that have challenges
 ========================= */
 
 // Solved lookup
@@ -126,10 +123,6 @@ foreach ($allChallenges as $c) {
 
 $totalChallenges = count($allChallenges);
 $solvedCount = count($solvedIds);
-
-// Default selected category = first available
-$selectedCat = 0;
-if (!empty($categories)) $selectedCat = (int)$categories[0]['id'];
 ?>
 <!doctype html>
 <html lang="en">
@@ -235,6 +228,25 @@ body{margin:0;color:var(--text);background:#000;overflow-x:hidden;}
 .catBtn.active{border-color: rgba(245,210,123,0.35); background: rgba(245,210,123,0.08); color: rgba(245,210,123,0.95);}
 .catBtn .count{font-size:12px;color: rgba(230,250,255,0.72);}
 
+.hiddenArea{
+  display:grid;
+  place-items:center;
+  min-height:220px;
+  border-radius:22px;
+  border:1px dashed rgba(56,247,255,0.20);
+  background: rgba(0,0,0,0.16);
+  color: rgba(230,250,255,0.74);
+  font-family:'Share Tech Mono', monospace;
+  letter-spacing:.08em;
+  padding: 22px;
+  text-align:center;
+}
+
+.chWrap{display:none;}
+.chHeader{display:flex;flex-direction:column;gap:6px;margin-bottom:14px;}
+.chHeader .t{font-family:'Cinzel',serif;font-weight:900;letter-spacing:.12em;color:rgba(56,247,255,0.92);text-shadow:0 0 18px rgba(56,247,255,0.22);}
+.chHeader .d{font-size:12px;color:rgba(230,250,255,0.70);}
+
 .chCard{
   --g:0;
   border-radius:22px;border:1px solid rgba(56,247,255,0.18);
@@ -305,7 +317,7 @@ body{margin:0;color:var(--text);background:#000;overflow-x:hidden;}
       <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
         <div>
           <div class="h1 text-2xl md:text-3xl">🛠 ATLANTIS CHALLENGE TEMPLE</div>
-          <div class="mono small mt-2">Click a category → challenges open instantly</div>
+          <div class="mono small mt-2">Select a category → challenges appear</div>
         </div>
         <div class="flex flex-wrap gap-2">
           <span class="pill">TOTAL: <b><?= (int)$totalChallenges ?></b></span>
@@ -320,19 +332,20 @@ body{margin:0;color:var(--text);background:#000;overflow-x:hidden;}
     <?php endif; ?>
 
     <section class="grid2">
-      <!-- LEFT: categories (ONLY available ones) -->
+      <!-- LEFT: categories ONLY -->
       <div class="panel p-5">
-        <div class="h1 text-lg">🔱 AVAILABLE CATEGORIES</div>
-        <div class="mono small mt-2">Only categories with challenges are shown</div>
+        <div class="h1 text-lg">🔱 CATEGORIES</div>
+        <div class="mono small mt-2">Choose one to reveal challenges</div>
 
         <div class="mt-4 space-y-3" id="catList">
-          <button type="button" class="catBtn active" data-cat="all">
-            <span>ALL</span>
-            <span class="count"><?= (int)$totalChallenges ?></span>
-          </button>
-
           <?php foreach($categories as $cat): ?>
-            <button type="button" class="catBtn" data-cat="<?= (int)$cat['id'] ?>">
+            <button
+              type="button"
+              class="catBtn"
+              data-cat="<?= (int)$cat['id'] ?>"
+              data-name="<?= h($cat['name']) ?>"
+              data-desc="<?= h((string)($cat['description'] ?? '')) ?>"
+            >
               <span><?= h($cat['name']) ?></span>
               <span class="count"><?= (int)$cat['ch_count'] ?></span>
             </button>
@@ -340,77 +353,92 @@ body{margin:0;color:var(--text);background:#000;overflow-x:hidden;}
         </div>
       </div>
 
-      <!-- RIGHT: challenges -->
+      <!-- RIGHT: challenges hidden until category click -->
       <div class="panel p-5">
-        <div class="h1 text-lg">⚔️ CHALLENGES</div>
-        <div class="mono small mt-2">Pick category to filter chambers</div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-5" id="cards">
-          <?php foreach ($allChallenges as $c): ?>
-            <?php
-              $cid = (int)$c['id'];
-              $isSolved = isset($solvedLookup[$cid]);
-              $catId = (int)$c['category_id'];
-            ?>
-            <div class="chCard" data-cat="<?= $catId ?>">
-              <div class="chTitle"><?= h($c['title']) ?></div>
-
-              <?php if (!empty($c['tags'])): ?>
-                <div class="badges">
-                  <?php foreach (explode(',', (string)$c['tags']) as $tag): ?>
-                    <?php $t = trim($tag); if($t==='') continue; ?>
-                    <span class="badge" style="border-color:rgba(56,247,255,0.22);color:rgba(56,247,255,0.92);background:rgba(56,247,255,0.07);">
-                      <?= h($t) ?>
-                    </span>
-                  <?php endforeach; ?>
-                </div>
-              <?php endif; ?>
-
-              <?php if(!empty($c['description'])): ?>
-                <div class="chDesc"><?= nl2br(h($c['description'])) ?></div>
-              <?php endif; ?>
-
-              <div class="badges">
-                <span class="badge points"><?= (int)$c['points'] ?> PTS</span>
-                <?php if ($isSolved): ?>
-                  <span class="badge done">✅ SOLVED</span>
-                <?php endif; ?>
-              </div>
-
-              <div class="linkRow">
-                <?php
-                  if (!empty($c['file_path'])) {
-                    $fullPath = __DIR__ . '/../' . $c['file_path'];
-                    if (file_exists($fullPath)) {
-                      echo '<a class="linkA" href="../'.h($c['file_path']).'" download>📄 FILE</a>';
-                    } else {
-                      echo '<span class="mono small" style="color:rgba(244,63,94,0.9)">File missing</span>';
-                    }
-                  }
-                  if (!empty($c['link'])) {
-                    echo '<a class="linkA" href="'.h($c['link']).'" target="_blank" rel="noopener">🔗 LINK</a>';
-                  }
-                ?>
-              </div>
-
-              <?php if ($ctfEnded): ?>
-                <div class="solvedBox" style="border-color:rgba(245,158,11,0.35);background:rgba(245,158,11,0.08);color:rgba(255,240,205,0.95);">
-                  🔒 SEALED (CTF ENDED)
-                </div>
-              <?php else: ?>
-                <?php if (!$isSolved): ?>
-                  <form method="POST" class="formBox">
-                    <input type="hidden" name="challenge_id" value="<?= $cid ?>">
-                    <input class="inp" type="text" name="flag" placeholder="ENTER FLAG (EX: ATL{...})" required>
-                    <button class="btn btn-submit" type="submit">SUBMIT FLAG →</button>
-                  </form>
-                <?php else: ?>
-                  <div class="solvedBox">✅ COMPLETED</div>
-                <?php endif; ?>
-              <?php endif; ?>
-
+        <div id="emptyState" class="hiddenArea">
+          <div>
+            <div style="font-family:'Cinzel',serif;font-weight:900;letter-spacing:.14em;color:rgba(56,247,255,0.92);">
+              🔒 CHAMBER SEALED
             </div>
-          <?php endforeach; ?>
+            <div style="margin-top:10px;">
+              Select a category on the left to open a chamber.
+            </div>
+          </div>
+        </div>
+
+        <div id="challengeArea" class="chWrap">
+          <div class="chHeader">
+            <div class="t" id="catTitle">CATEGORY</div>
+            <div class="d" id="catDesc"></div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4" id="cards">
+            <?php foreach ($allChallenges as $c): ?>
+              <?php
+                $cid = (int)$c['id'];
+                $isSolved = isset($solvedLookup[$cid]);
+                $catId = (int)$c['category_id'];
+              ?>
+              <div class="chCard" data-cat="<?= $catId ?>" style="display:none;">
+                <div class="chTitle"><?= h($c['title']) ?></div>
+
+                <?php if (!empty($c['tags'])): ?>
+                  <div class="badges">
+                    <?php foreach (explode(',', (string)$c['tags']) as $tag): ?>
+                      <?php $t = trim($tag); if($t==='') continue; ?>
+                      <span class="badge" style="border-color:rgba(56,247,255,0.22);color:rgba(56,247,255,0.92);background:rgba(56,247,255,0.07);">
+                        <?= h($t) ?>
+                      </span>
+                    <?php endforeach; ?>
+                  </div>
+                <?php endif; ?>
+
+                <?php if(!empty($c['description'])): ?>
+                  <div class="chDesc"><?= nl2br(h($c['description'])) ?></div>
+                <?php endif; ?>
+
+                <div class="badges">
+                  <span class="badge points"><?= (int)$c['points'] ?> PTS</span>
+                  <?php if ($isSolved): ?>
+                    <span class="badge done">✅ SOLVED</span>
+                  <?php endif; ?>
+                </div>
+
+                <div class="linkRow">
+                  <?php
+                    if (!empty($c['file_path'])) {
+                      $fullPath = __DIR__ . '/../' . $c['file_path'];
+                      if (file_exists($fullPath)) {
+                        echo '<a class="linkA" href="../'.h($c['file_path']).'" download>📄 FILE</a>';
+                      } else {
+                        echo '<span class="mono small" style="color:rgba(244,63,94,0.9)">File missing</span>';
+                      }
+                    }
+                    if (!empty($c['link'])) {
+                      echo '<a class="linkA" href="'.h($c['link']).'" target="_blank" rel="noopener">🔗 LINK</a>';
+                    }
+                  ?>
+                </div>
+
+                <?php if ($ctfEnded): ?>
+                  <div class="solvedBox" style="border-color:rgba(245,158,11,0.35);background:rgba(245,158,11,0.08);color:rgba(255,240,205,0.95);">
+                    🔒 SEALED (CTF ENDED)
+                  </div>
+                <?php else: ?>
+                  <?php if (!$isSolved): ?>
+                    <form method="POST" class="formBox">
+                      <input type="hidden" name="challenge_id" value="<?= $cid ?>">
+                      <input class="inp" type="text" name="flag" placeholder="ENTER FLAG (EX: ATL{...})" required>
+                      <button class="btn btn-submit" type="submit">SUBMIT FLAG →</button>
+                    </form>
+                  <?php else: ?>
+                    <div class="solvedBox">✅ COMPLETED</div>
+                  <?php endif; ?>
+                <?php endif; ?>
+
+              </div>
+            <?php endforeach; ?>
+          </div>
         </div>
       </div>
     </section>
@@ -418,10 +446,11 @@ body{margin:0;color:var(--text);background:#000;overflow-x:hidden;}
 </div>
 
 <script>
-// Glow
-const cards = document.querySelectorAll('.chCard');
+// Glow on cards
+const chCards = document.querySelectorAll('.chCard');
 document.addEventListener('mousemove', (e)=>{
-  cards.forEach(c=>{
+  chCards.forEach(c=>{
+    if (c.style.display === 'none') return;
     const r=c.getBoundingClientRect();
     const cx=r.left+r.width/2, cy=r.top+r.height/2;
     const dx=e.clientX-cx, dy=e.clientY-cy;
@@ -431,21 +460,43 @@ document.addEventListener('mousemove', (e)=>{
   });
 });
 
-// Category filtering
+// Category click → show only that category challenges
 const catBtns = document.querySelectorAll('.catBtn');
+const emptyState = document.getElementById('emptyState');
+const challengeArea = document.getElementById('challengeArea');
+const catTitle = document.getElementById('catTitle');
+const catDesc = document.getElementById('catDesc');
+
+function showCategory(catId, name, desc){
+  // show right panel content
+  emptyState.style.display = 'none';
+  challengeArea.style.display = 'block';
+
+  // set header
+  catTitle.textContent = name || 'CATEGORY';
+  catDesc.textContent = desc || '';
+
+  // filter cards
+  chCards.forEach(card=>{
+    card.style.display = (card.dataset.cat === String(catId)) ? 'block' : 'none';
+  });
+
+  // active highlight
+  catBtns.forEach(b=>b.classList.remove('active'));
+  const activeBtn = [...catBtns].find(b => b.dataset.cat === String(catId));
+  if (activeBtn) activeBtn.classList.add('active');
+
+  // scroll to right on small screens
+  document.getElementById('cards').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
 catBtns.forEach(btn=>{
   btn.addEventListener('click', ()=>{
-    catBtns.forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-
-    const cat = btn.dataset.cat;
-    document.querySelectorAll('.chCard').forEach(card=>{
-      if (cat === 'all') card.style.display = 'block';
-      else card.style.display = (card.dataset.cat === cat) ? 'block' : 'none';
-    });
-
-    // smooth scroll to challenges panel on mobile
-    document.getElementById('cards').scrollIntoView({behavior:'smooth', block:'start'});
+    showCategory(
+      btn.dataset.cat,
+      btn.dataset.name,
+      btn.dataset.desc
+    );
   });
 });
 </script>
