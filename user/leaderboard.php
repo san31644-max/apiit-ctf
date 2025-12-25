@@ -14,18 +14,18 @@ function h($v){ return htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8'); }
 $userId   = (int)($_SESSION['user_id'] ?? 0);
 $username = $_SESSION['username'] ?? 'Explorer';
 
-$limit = 60; // show top 60 (looks better with effects)
+$limit = 60; // top N
 $rows = [];
 $useWindow = true;
 
-/* Top N ranked */
+/* ===== TOP N with unique places (ROW_NUMBER) ===== */
 try {
   $stmt = $pdo->prepare("
     SELECT
       id,
       username,
       COALESCE(score,0) AS score,
-      DENSE_RANK() OVER (ORDER BY COALESCE(score,0) DESC) AS place
+      ROW_NUMBER() OVER (ORDER BY COALESCE(score,0) DESC, username ASC) AS place
     FROM users
     WHERE role='user'
     ORDER BY COALESCE(score,0) DESC, username ASC
@@ -38,6 +38,7 @@ try {
   $useWindow = false;
 }
 
+/* ===== Fallback: compute unique places in PHP ===== */
 if (!$useWindow) {
   $stmt = $pdo->prepare("
     SELECT id, username, COALESCE(score,0) AS score
@@ -50,39 +51,54 @@ if (!$useWindow) {
   $stmt->execute();
   $tmp = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-  $place = 0;
-  $lastScore = null;
   foreach ($tmp as $i => $r) {
-    $s = (int)$r['score'];
-    if ($lastScore === null || $s !== $lastScore) $place = $i + 1;
-    $lastScore = $s;
-    $r['place'] = $place;
+    $r['place'] = $i + 1; // unique place always
     $rows[] = $r;
   }
 }
 
-/* Current user score */
+/* ===== Current user score ===== */
 $myScore = 0;
 try {
-  $stmt = $pdo->prepare("SELECT COALESCE(score,0) FROM users WHERE id=:id LIMIT 1");
+  $stmt = $pdo->prepare("SELECT COALESCE(score,0), username FROM users WHERE id=:id LIMIT 1");
   $stmt->execute(['id' => $userId]);
-  $myScore = (int)$stmt->fetchColumn();
-} catch (Exception $e) { $myScore = 0; }
+  $meRow = $stmt->fetch(PDO::FETCH_ASSOC);
+  if ($meRow) {
+    $myScore = (int)$meRow['COALESCE(score,0)'] ?? (int)($meRow['score'] ?? 0);
+    // ensure tie-break username matches DB
+    $username = $meRow['username'] ?? $username;
+  }
+} catch (Exception $e) {
+  $myScore = 0;
+}
 
-/* Global place */
+/* ===== My global place (matches ORDER BY score DESC, username ASC) ===== */
 $myPlace = null;
 try {
-  $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE role='user' AND COALESCE(score,0) > :s");
-  $stmt->execute(['s' => $myScore]);
+  $stmt = $pdo->prepare("
+    SELECT COUNT(*)
+    FROM users
+    WHERE role='user'
+      AND (
+        COALESCE(score,0) > :s
+        OR (COALESCE(score,0) = :s AND username < :u)
+      )
+  ");
+  $stmt->execute(['s' => $myScore, 'u' => $username]);
   $myPlace = (int)$stmt->fetchColumn() + 1;
-} catch (Exception $e) { $myPlace = null; }
+} catch (Exception $e) {
+  $myPlace = null;
+}
 
-/* Total players */
+/* ===== Total players ===== */
 $totalPlayers = 0;
 try {
   $totalPlayers = (int)$pdo->query("SELECT COUNT(*) FROM users WHERE role='user'")->fetchColumn();
-} catch (Exception $e) { $totalPlayers = 0; }
+} catch (Exception $e) {
+  $totalPlayers = 0;
+}
 
+/* ===== Podium ===== */
 $top1 = $rows[0] ?? null;
 $top2 = $rows[1] ?? null;
 $top3 = $rows[2] ?? null;
@@ -128,7 +144,7 @@ body{
     linear-gradient(180deg,var(--deep1),var(--deep2) 55%,var(--deep3));
 }
 
-/* ===== DYNAMIC BACKGROUND LAYERS ===== */
+/* ===== DYNAMIC BACKGROUND ===== */
 .caustics{
   position:fixed; inset:-30%;
   pointer-events:none;
@@ -183,7 +199,7 @@ body{
   to  { transform: translate( 1%,  1%) scale(1.05); }
 }
 
-/* Canvas bubbles */
+/* bubbles canvas */
 #bubbles{
   position:fixed; inset:0;
   z-index:-2;
@@ -256,11 +272,9 @@ body{
 }
 .sidebar a:hover::after{ width:4px; }
 
-.main{
-  margin-left:16rem;
-  min-height:100vh;
-}
-.wrap{max-width:1200px;margin:0 auto;padding:26px;}
+.main{ margin-left:16rem; min-height:100vh; }
+.wrap{ max-width:1200px; margin:0 auto; padding:26px; }
+
 .panel{
   backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
   background: var(--glass);
@@ -277,14 +291,10 @@ body{
 }
 .small{font-size:12px;color: rgba(230,250,255,0.72);}
 
-/* ===== Controls ===== */
-.controls{
-  display:flex; gap:10px; flex-wrap:wrap;
-  align-items:center; justify-content:space-between;
-}
+/* controls */
+.controls{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between; }
 .search{
-  flex:1;
-  min-width:220px;
+  flex:1; min-width:220px;
   border-radius:14px;
   border:1px solid rgba(56,247,255,0.22);
   background: rgba(255,255,255,0.04);
@@ -292,10 +302,7 @@ body{
   outline:none;
   color: rgba(230,250,255,0.95);
 }
-.search:focus{
-  border-color: rgba(56,247,255,0.42);
-  box-shadow: 0 0 0 3px rgba(56,247,255,0.10);
-}
+.search:focus{ border-color: rgba(56,247,255,0.42); box-shadow: 0 0 0 3px rgba(56,247,255,0.10); }
 .btn{
   border-radius:14px;
   border:1px solid rgba(56,247,255,0.24);
@@ -306,13 +313,9 @@ body{
   letter-spacing:.08em;
   transition:.25s ease;
 }
-.btn:hover{
-  transform: translateY(-1px);
-  border-color: rgba(56,247,255,0.44);
-  box-shadow: 0 0 24px rgba(56,247,255,0.14);
-}
+.btn:hover{ transform: translateY(-1px); border-color: rgba(56,247,255,0.44); box-shadow: 0 0 24px rgba(56,247,255,0.14); }
 
-/* ===== Podium ===== */
+/* podium */
 .podium{display:grid;grid-template-columns: 1fr 1fr 1fr;gap:14px;margin-top:16px;}
 .pod{
   position:relative; overflow:hidden;
@@ -330,14 +333,8 @@ body{
 .pod:nth-child(1){animation-delay:.05s}
 .pod:nth-child(2){animation-delay:.12s}
 .pod:nth-child(3){animation-delay:.20s}
-@keyframes rise{
-  to{ transform: translateY(0); opacity:1; }
-}
-.pod:hover{
-  transform: translateY(-3px);
-  border-color:rgba(56,247,255,0.32);
-  box-shadow:0 0 26px rgba(56,247,255,0.14), inset 0 0 18px rgba(255,255,255,0.04);
-}
+@keyframes rise{ to{ transform: translateY(0); opacity:1; } }
+.pod:hover{ transform: translateY(-3px); border-color:rgba(56,247,255,0.32); box-shadow:0 0 26px rgba(56,247,255,0.14), inset 0 0 18px rgba(255,255,255,0.04); }
 .pod::after{
   content:"";
   position:absolute; inset:-80px -80px auto auto;
@@ -349,7 +346,7 @@ body{
 .pod .name{margin-top:10px;font-family:'Cinzel',serif;font-weight:900;font-size:20px;color: rgba(230,250,255,0.95);}
 .pod .score{margin-top:6px;font-weight:900;color: rgba(56,247,255,0.95);letter-spacing:.10em;}
 
-/* ===== Player Cards ===== */
+/* cards */
 .gridCard{
   --g:0;
   --rx:0deg;
@@ -397,7 +394,6 @@ body{
   color: rgba(56,247,255,0.95);
 }
 
-/* Responsive */
 @media (max-width: 760px){
   .sidebar{position:relative; width:100%; height:auto;}
   .main{margin-left:0;}
@@ -433,7 +429,7 @@ body{
       <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-3">
         <div>
           <div class="h1 text-2xl md:text-3xl">🏆 ATLANTIS LEADERBOARD</div>
-          <div class="small mt-2">REAL RANKS FROM DATABASE • TOTAL PLAYERS: <?= (int)$totalPlayers ?></div>
+          <div class="small mt-2">UNIQUE PLACES • TOTAL PLAYERS: <?= (int)$totalPlayers ?></div>
         </div>
         <div class="small text-right">
           YOU: <b style="color:rgba(245,210,123,0.95);"><?= h($username) ?></b><br>
@@ -483,8 +479,6 @@ body{
           <?php $isMe = ((int)$r['id'] === $userId); ?>
           <div class="gridCard <?= $isMe ? 'me' : '' ?>"
                data-name="<?= h(strtolower($r['username'])) ?>"
-               data-place="<?= (int)$r['place'] ?>"
-               data-score="<?= (int)$r['score'] ?>"
                <?= $isMe ? 'id="meCard"' : '' ?>>
             <div class="top">
               <span class="pill">PLACE #<?= (int)$r['place'] ?></span>
@@ -506,7 +500,7 @@ body{
 </div>
 
 <script>
-/* ===== BUBBLES CANVAS (dynamic) ===== */
+/* ===== BUBBLES CANVAS ===== */
 const canvas = document.getElementById('bubbles');
 const ctx = canvas.getContext('2d', { alpha: true });
 let W=0,H=0, bubbles=[];
@@ -520,16 +514,16 @@ resize();
 
 function rand(min,max){ return Math.random()*(max-min)+min; }
 
-function spawn(n=34){
+function spawn(n=36){
   bubbles = [];
   for(let i=0;i<n;i++){
     bubbles.push({
       x: rand(0,W),
       y: rand(0,H),
-      r: rand(1.2, 4.8),
-      s: rand(0.15, 0.55),
+      r: rand(1.2, 5.0),
+      s: rand(0.18, 0.60),
       a: rand(0.05, 0.18),
-      drift: rand(-0.25,0.25),
+      drift: rand(-0.28,0.28),
       hue: Math.random()<0.12 ? 'rgba(245,210,123,' : (Math.random()<0.5 ? 'rgba(56,247,255,' : 'rgba(0,209,184,')
     });
   }
@@ -567,7 +561,6 @@ document.addEventListener('mousemove', (e)=>{
     const g = Math.max(0, 1 - dist/280);
     c.style.setProperty('--g', g.toFixed(2));
 
-    // tilt only if within a reasonable range
     const clamp = (v, m)=> Math.max(-m, Math.min(m, v));
     const ry = clamp((dx / (r.width/2)) * 6, 8);
     const rx = clamp((-dy / (r.height/2)) * 6, 8);
