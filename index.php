@@ -479,7 +479,7 @@ body{
   </form>
 
   <p class="text-center text-sm mt-8 text-cyan-100/70">
-    Powered by <span class="footer-powered">HACKERSPLOIT</span>
+    Powered by <span class="footer-powered">MODA MALITHI</span>
   </p>
 </div>
 
