@@ -447,7 +447,7 @@ body{
   </div>
 
   <h1 class="text-3xl text-center font-bold text-cyan-200 mb-6 tracking-widest">
-    ATLANTIS GATEWAY
+    MODA MALITHI
   </h1>
 
   <?php if ($error): ?>
@@ -479,7 +479,7 @@ body{
   </form>
 
   <p class="text-center text-sm mt-8 text-cyan-100/70">
-    Powered by <span class="footer-powered">MODA MALITHI</span>
+    Powered by <span class="footer-powered">HACKERSPLOIT</span>
   </p>
 </div>
 
