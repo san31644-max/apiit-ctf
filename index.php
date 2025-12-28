@@ -447,7 +447,7 @@ body{
   </div>
 
   <h1 class="text-3xl text-center font-bold text-cyan-200 mb-6 tracking-widest">
-    🐚 ATLANTIS GATEWAY   
+    🐚 HAPPY BIRTHDAY MOTHER   
   </h1>
 
   <?php if ($error): ?>
