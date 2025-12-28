@@ -2,7 +2,6 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/db.php';
-
 if (session_status() === PHP_SESSION_NONE) session_start();
 
 $loggedIn = !empty($_SESSION['user_id']) || !empty($_SESSION['username']) || !empty($_SESSION['logged_in']);
@@ -16,10 +15,6 @@ function starts_with(string $s, string $prefix): bool { return strncmp($s, $pref
  * IMPORTANT: CONFIGURE THIS
  * =========================
  * UPLOADS_FS_BASE must be the REAL folder on disk that CONTAINS the "uploads/" folder.
- *
- * Examples:
- *  - If your structure is: /var/www/site/uploads/...            => UPLOADS_FS_BASE = /var/www/site
- *  - If your structure is: /var/www/site/public/uploads/...     => UPLOADS_FS_BASE = /var/www/site/public
  */
 define('UPLOADS_FS_BASE', realpath(__DIR__ . '/..') ?: (__DIR__ . '/..')); // change if uploads is in /public
 define('UPLOADS_URL_BASE', '/uploads'); // only used for showing public URL (optional)
@@ -34,17 +29,12 @@ $offset   = ($page - 1) * $perPage;
 
 // ---------- Receipt helper: map DB path -> absolute FS path ----------
 function receipt_fs_path(string $dbPath): string {
-    // Normalize DB path (recommended format: uploads/receipts/xxx.jpg)
     $dbPath = ltrim($dbPath, '/');
-
-    // If DB stored "receipts/..." force under uploads/
     if (!starts_with($dbPath, 'uploads/')) {
         $dbPath = 'uploads/' . $dbPath;
     }
-
     $base = rtrim((string)UPLOADS_FS_BASE, DIRECTORY_SEPARATOR);
-    $full = $base . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $dbPath);
-    return $full;
+    return $base . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $dbPath);
 }
 
 // ---------- Receipt helper: map DB path -> public URL ----------
@@ -61,10 +51,8 @@ function receipt_public_url(string $dbPath): string {
 if ($action === 'receipt') {
     $teamId = (int)($_GET['team_id'] ?? 0);
     $mode   = (string)($_GET['mode'] ?? 'download'); // download|inline
-
     if ($teamId <= 0) { http_response_code(400); exit("Invalid team_id"); }
 
-    // latest payment row for team
     $stmt = $pdo->prepare("
         SELECT receipt_file, receipt_original_name, receipt_mime
         FROM ctf_payments
@@ -87,9 +75,7 @@ if ($action === 'receipt') {
     $fsPath = receipt_fs_path($dbPath);
 
     // --- Strong security: allow only inside UPLOADS_FS_BASE/uploads/ ---
-    $uploadsBaseCandidate = rtrim((string)UPLOADS_FS_BASE, DIRECTORY_SEPARATOR)
-        . DIRECTORY_SEPARATOR . 'uploads';
-
+    $uploadsBaseCandidate = rtrim((string)UPLOADS_FS_BASE, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'uploads';
     $uploadsBaseReal = realpath($uploadsBaseCandidate);
     if ($uploadsBaseReal === false) {
         http_response_code(500);
@@ -103,7 +89,6 @@ if ($action === 'receipt') {
         exit("Receipt file not found on server. Checked: " . h($fsPath));
     }
 
-    // realFs might be a symlink target; compare with real uploads base too
     $realFsNorm = rtrim($realFs, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
     if (!starts_with($realFsNorm, $uploadsBaseReal)) {
         http_response_code(403);
@@ -113,14 +98,10 @@ if ($action === 'receipt') {
     $filename = $orig !== '' ? $orig : basename($realFs);
     if ($mime === '') $mime = mime_content_type($realFs) ?: 'application/octet-stream';
 
-    // Clean output buffers (prevents corruption)
     while (ob_get_level()) { ob_end_clean(); }
 
     header('Content-Type: ' . $mime);
     header('X-Content-Type-Options: nosniff');
-
-    // If preview in iframe is blocked by server headers, you must fix CSP/XFO at server config.
-    // We won't set X-Frame-Options here because it might be set globally elsewhere.
 
     $disp = ($mode === 'inline') ? 'inline' : 'attachment';
     $safeName = str_replace(["\r", "\n", '"'], '', $filename);
@@ -305,6 +286,9 @@ function pillText(string $st): string {
 $base = "/admin/view_registration.php?q=" . urlencode($q) . "&status=" . urlencode($status) . "&page=";
 $csvLink = "/admin/view_registration.php?action=csv&q=" . urlencode($q) . "&status=" . urlencode($status);
 
+// For JS: provide members data for only teams on this page
+$membersJson = json_encode($membersByTeam, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}';
+
 ?>
 <!doctype html>
 <html lang="en">
@@ -379,19 +363,58 @@ $csvLink = "/admin/view_registration.php?action=csv&q=" . urlencode($q) . "&stat
   .pill.pending{color:#ffd48a}.pill.pending:before{background:var(--warn)}
   .pill.approved{color:#8bffb7}.pill.approved:before{background:var(--good)}
   .pill.rejected{color:#ff9aa8}.pill.rejected:before{background:var(--bad)}
-  details{border:1px solid rgba(255,255,255,.10);border-radius:14px;background:rgba(0,0,0,.18);padding:10px 12px;}
-  summary{cursor:pointer;color:rgba(72,241,255,.90);font-weight:600}
-  .members-grid{margin-top:10px;display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:10px;}
-  .mem{border:1px solid rgba(255,255,255,.10);border-radius:14px;padding:10px 12px;background:rgba(255,255,255,.04);}
   .pagination{display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;padding:14px 16px}
 
-  /* Modal */
+  /* Receipt modal */
   .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.6);z-index:50}
   .modal.on{display:flex}
   .modal-card{width:min(980px, 96vw);border-radius:18px;border:1px solid rgba(255,255,255,.14);background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.22));box-shadow:var(--shadow);overflow:hidden;}
   .modal-head{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.10)}
   .modal-body{padding:12px 14px}
   .preview{width:100%;height:70vh;border:1px solid rgba(255,255,255,.10);border-radius:14px;background:rgba(0,0,0,.25);}
+
+  /* Members drawer modal (fixes overlay issue) */
+  .drawer{position:fixed;inset:0;display:none;z-index:60;background:rgba(0,0,0,.62)}
+  .drawer.on{display:block}
+  .drawer-panel{
+    position:absolute;top:0;right:0;height:100%;
+    width:min(520px, 96vw);
+    border-left:1px solid rgba(255,255,255,.14);
+    background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(0,0,0,.35));
+    box-shadow:var(--shadow);
+    padding:14px;
+    overflow:auto;
+    transform:translateX(0);
+  }
+  .drawer-top{
+    display:flex;align-items:flex-start;justify-content:space-between;gap:10px;
+    padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.10);
+  }
+  .drawer-title{font-weight:800;letter-spacing:.02em}
+  .drawer-sub{color:var(--muted);font-size:13px;margin-top:4px}
+  .chip{
+    display:inline-flex;align-items:center;gap:8px;
+    padding:6px 10px;border-radius:999px;
+    border:1px solid rgba(255,255,255,.12);
+    background:rgba(0,0,0,.20);
+    font-size:12px;color:rgba(232,240,255,.78);
+  }
+  .member-list{margin-top:12px;display:grid;gap:10px}
+  .member-card{
+    border:1px solid rgba(255,255,255,.12);
+    border-radius:16px;
+    background:rgba(255,255,255,.04);
+    padding:10px 12px;
+  }
+  .member-name{font-weight:750}
+  .member-meta{color:var(--muted);font-size:13px;margin-top:4px;word-break:break-word}
+  .member-no{margin-top:8px}
+  .divider{height:1px;background:rgba(255,255,255,.08);margin:10px 0}
+
+  @media (max-width: 720px){
+    input{min-width:220px}
+    th:nth-child(2), td:nth-child(2){min-width:240px}
+  }
 </style>
 </head>
 <body>
@@ -470,20 +493,21 @@ $csvLink = "/admin/view_registration.php?action=csv&q=" . urlencode($q) . "&stat
           </td>
 
           <td>
-            <details>
-              <summary><?= count($members) ?> participant(s)</summary>
-              <div class="members-grid">
-                <?php foreach ($members as $m): ?>
-                  <div class="mem">
-                    <div style="font-weight:650"><?= h((string)$m['member_name']) ?></div>
-                    <div class="muted"><?= h((string)$m['member_email']) ?></div>
-                    <div class="muted"><?= h((string)$m['member_phone']) ?></div>
-                    <div class="muted">#<?= (int)$m['member_no'] ?></div>
-                  </div>
-                <?php endforeach; ?>
-                <?php if (!$members): ?><div class="muted">No members found.</div><?php endif; ?>
+            <?php if (count($members) > 0): ?>
+              <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+                <span class="chip"><?= (int)count($members) ?> participant(s)</span>
+                <button class="btn secondary small" type="button"
+                        data-team="<?= $tid ?>"
+                        data-teamname="<?= h((string)$t['team_name']) ?>"
+                        data-uni="<?= h((string)$t['university_name']) ?>"
+                        onclick="openMembers(this)">
+                  View
+                </button>
               </div>
-            </details>
+              <div class="muted" style="margin-top:8px">Opens in a side panel (no table overlap)</div>
+            <?php else: ?>
+              <div class="muted">No members found.</div>
+            <?php endif; ?>
           </td>
 
           <td>
@@ -501,7 +525,7 @@ $csvLink = "/admin/view_registration.php?action=csv&q=" . urlencode($q) . "&stat
                 <button class="btn secondary small" type="button"
                         data-inline="<?= h($inlineLink) ?>"
                         data-name="<?= h($receiptName !== '' ? $receiptName : 'Receipt') ?>"
-                        onclick="openPreview(this)">Preview</button>
+                        onclick="openReceipt(this)">Preview</button>
                 <a class="btn secondary small" href="<?= h($downloadLink) ?>">Download</a>
               </div>
               <div class="muted" style="margin-top:8px"><?= h($receiptName) ?></div>
@@ -538,15 +562,15 @@ $csvLink = "/admin/view_registration.php?action=csv&q=" . urlencode($q) . "&stat
   </div>
 </div>
 
-<!-- Preview Modal -->
-<div class="modal" id="modal">
-  <div class="modal-card">
+<!-- Receipt Preview Modal -->
+<div class="modal" id="receiptModal" aria-hidden="true">
+  <div class="modal-card" role="dialog" aria-modal="true">
     <div class="modal-head">
-      <div id="modalTitle" style="font-weight:700">Receipt</div>
-      <button class="btn secondary small" type="button" onclick="closePreview()">Close</button>
+      <div id="receiptTitle" style="font-weight:700">Receipt</div>
+      <button class="btn secondary small" type="button" onclick="closeReceipt()">Close</button>
     </div>
     <div class="modal-body">
-      <iframe class="preview" id="previewFrame" src=""></iframe>
+      <iframe class="preview" id="receiptFrame" src=""></iframe>
       <div class="muted" style="margin-top:10px">
         Preview uses secure inline streaming (no need for /uploads to be public).
       </div>
@@ -554,23 +578,141 @@ $csvLink = "/admin/view_registration.php?action=csv&q=" . urlencode($q) . "&stat
   </div>
 </div>
 
-<script>
-  const modal = document.getElementById('modal');
-  const frame = document.getElementById('previewFrame');
-  const title = document.getElementById('modalTitle');
+<!-- Members Drawer -->
+<div class="drawer" id="membersDrawer" aria-hidden="true">
+  <div class="drawer-panel" role="dialog" aria-modal="true">
+    <div class="drawer-top">
+      <div>
+        <div class="drawer-title" id="membersTitle">Members</div>
+        <div class="drawer-sub" id="membersSub">—</div>
+      </div>
+      <button class="btn secondary small" type="button" onclick="closeMembers()">Close</button>
+    </div>
 
-  function openPreview(btn){
+    <div class="divider"></div>
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <span class="chip" id="membersCountChip">0 participant(s)</span>
+      <input id="memberSearch" type="text" placeholder="Search member name / email / phone" style="flex:1;min-width:220px" oninput="renderMembers()">
+    </div>
+
+    <div class="member-list" id="membersList" style="margin-top:12px"></div>
+  </div>
+</div>
+
+<script>
+  // Members data for this page only (prevents extra queries + avoids table overlay)
+  const MEMBERS = <?= $membersJson ?>;
+
+  // Receipt modal
+  const receiptModal = document.getElementById('receiptModal');
+  const receiptFrame = document.getElementById('receiptFrame');
+  const receiptTitle = document.getElementById('receiptTitle');
+
+  function openReceipt(btn){
     const url = btn.getAttribute('data-inline');
     const name = btn.getAttribute('data-name') || 'Receipt';
-    title.textContent = name;
-    frame.src = url;
-    modal.classList.add('on');
+    receiptTitle.textContent = name;
+    receiptFrame.src = url;
+    receiptModal.classList.add('on');
+    receiptModal.setAttribute('aria-hidden', 'false');
   }
-  function closePreview(){
-    frame.src = '';
-    modal.classList.remove('on');
+  function closeReceipt(){
+    receiptFrame.src = '';
+    receiptModal.classList.remove('on');
+    receiptModal.setAttribute('aria-hidden', 'true');
   }
-  modal.addEventListener('click', (e) => { if (e.target === modal) closePreview(); });
+  receiptModal.addEventListener('click', (e) => { if (e.target === receiptModal) closeReceipt(); });
+
+  // Members drawer
+  const drawer = document.getElementById('membersDrawer');
+  const membersTitle = document.getElementById('membersTitle');
+  const membersSub = document.getElementById('membersSub');
+  const membersList = document.getElementById('membersList');
+  const membersCountChip = document.getElementById('membersCountChip');
+  const memberSearch = document.getElementById('memberSearch');
+
+  let activeTeamId = null;
+  let activeMembers = [];
+
+  function openMembers(btn){
+    const teamId = btn.getAttribute('data-team');
+    const teamName = btn.getAttribute('data-teamname') || 'Team';
+    const uni = btn.getAttribute('data-uni') || '';
+
+    activeTeamId = teamId;
+    activeMembers = (MEMBERS[teamId] || []);
+    membersTitle.textContent = `Members • ${teamName}`;
+    membersSub.textContent = uni ? uni : `Team ID: ${teamId}`;
+    membersCountChip.textContent = `${activeMembers.length} participant(s)`;
+
+    memberSearch.value = '';
+    renderMembers();
+
+    drawer.classList.add('on');
+    drawer.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeMembers(){
+    drawer.classList.remove('on');
+    drawer.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+    activeTeamId = null;
+    activeMembers = [];
+    membersList.innerHTML = '';
+  }
+
+  function renderMembers(){
+    const q = (memberSearch.value || '').trim().toLowerCase();
+    let list = activeMembers;
+
+    if (q !== '') {
+      list = activeMembers.filter(m => {
+        const name = (m.member_name || '').toLowerCase();
+        const email = (m.member_email || '').toLowerCase();
+        const phone = (m.member_phone || '').toLowerCase();
+        const no = String(m.member_no || '');
+        return name.includes(q) || email.includes(q) || phone.includes(q) || no.includes(q);
+      });
+    }
+
+    if (!list.length) {
+      membersList.innerHTML = `<div class="muted">No matching members.</div>`;
+      return;
+    }
+
+    membersList.innerHTML = list.map(m => {
+      const name = escapeHtml(m.member_name || '—');
+      const email = escapeHtml(m.member_email || '—');
+      const phone = escapeHtml(m.member_phone || '—');
+      const no = escapeHtml(String(m.member_no ?? '—'));
+      return `
+        <div class="member-card">
+          <div class="member-name">${name}</div>
+          <div class="member-meta">${email}</div>
+          <div class="member-meta">${phone}</div>
+          <div class="member-no"><span class="chip">#${no}</span></div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  drawer.addEventListener('click', (e) => { if (e.target === drawer) closeMembers(); });
+
+  // ESC closes whichever is open
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      if (drawer.classList.contains('on')) closeMembers();
+      if (receiptModal.classList.contains('on')) closeReceipt();
+    }
+  });
+
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, (c) => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
+    }[c]));
+  }
 </script>
 </body>
 </html>
