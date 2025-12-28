@@ -8,180 +8,128 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 /**
- * Uses the SAME login session as your site.
- * If your project uses a specific session key, update this line.
+ * Uses SAME login session as your site.
+ * If your login uses a different session key, change this.
  */
 $loggedIn = !empty($_SESSION['user_id']) || !empty($_SESSION['username']) || !empty($_SESSION['logged_in']);
 if (!$loggedIn) {
-    header("Location: /index.php"); // your main login page
+    header("Location: /index.php");
     exit;
 }
 
 function h(string $s): string { return htmlspecialchars($s, ENT_QUOTES, 'UTF-8'); }
-
-function tableColumns(PDO $pdo, string $table): array {
-    $stmt = $pdo->prepare("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :t");
-    $stmt->execute([':t' => $table]);
-    return $stmt->fetchAll(PDO::FETCH_COLUMN) ?: [];
-}
-
-function pickFirst(array $cols, array $candidates): ?string {
-    foreach ($candidates as $c) {
-        if (in_array($c, $cols, true)) return $c;
-    }
-    return null;
-}
-
-function starts_with(string $haystack, string $prefix): bool {
-    return strncmp($haystack, $prefix, strlen($prefix)) === 0;
-}
-
-// ---- Detect columns to avoid schema mismatch ----
-$teamCols = tableColumns($pdo, 'ctf_teams');
-$memCols  = tableColumns($pdo, 'ctf_team_members');
-$payCols  = tableColumns($pdo, 'ctf_payments');
-
-$colTeamId     = pickFirst($teamCols, ['id', 'team_id']);
-$colTeamName   = pickFirst($teamCols, ['team_name', 'name', 'team']);
-$colCaptain    = pickFirst($teamCols, ['captain_name', 'captain', 'leader_name', 'leader']);
-$colEmail      = pickFirst($teamCols, ['email', 'captain_email', 'contact_email']);
-$colPhone      = pickFirst($teamCols, ['phone', 'mobile', 'contact', 'contact_phone']);
-$colCreatedAt  = pickFirst($teamCols, ['created_at', 'registered_at', 'created', 'reg_date']);
-
-$colMemTeamId  = pickFirst($memCols, ['team_id']);
-$colMemName    = pickFirst($memCols, ['member_name', 'name', 'full_name']);
-$colMemEmail   = pickFirst($memCols, ['member_email', 'email']);
-
-$colPayTeamId  = pickFirst($payCols, ['team_id']);
-$colPayAmount  = pickFirst($payCols, ['amount', 'payment_amount', 'total']);
-$colPayStatus  = pickFirst($payCols, ['status', 'payment_status']);
-$colPayPaidAt  = pickFirst($payCols, ['paid_at', 'payment_date', 'created_at', 'date']);
-$colPayProof   = pickFirst($payCols, ['proof_file', 'proof', 'receipt', 'slip', 'payment_proof', 'file_path']);
-
-if (!$colTeamId || !$colTeamName) {
-    http_response_code(500);
-    exit("DB schema error: ctf_teams must have an id/team_id and a team_name/name column.");
-}
+function starts_with(string $s, string $prefix): bool { return strncmp($s, $prefix, strlen($prefix)) === 0; }
 
 // ---- Inputs ----
-$action  = (string)($_GET['action'] ?? 'view'); // view|csv|download_proof
+$action  = (string)($_GET['action'] ?? 'view'); // view|csv|download_receipt
 $q       = trim((string)($_GET['q'] ?? ''));
 $payment = (string)($_GET['payment'] ?? 'all'); // all|paid|unpaid
 $page    = max(1, (int)($_GET['page'] ?? 1));
 $perPage = 20;
 $offset  = ($page - 1) * $perPage;
 
-// ---- Build WHERE ----
+// ---- Action: Download receipt (same page) ----
+if ($action === 'download_receipt') {
+    $teamId = (int)($_GET['team_id'] ?? 0);
+    if ($teamId <= 0) { http_response_code(400); exit("Invalid team_id"); }
+
+    // Always download the latest receipt for this team
+    $stmt = $pdo->prepare("
+        SELECT receipt_file, receipt_original_name, receipt_mime
+        FROM ctf_payments
+        WHERE team_id = :tid
+        ORDER BY id DESC
+        LIMIT 1
+    ");
+    $stmt->execute([':tid' => $teamId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if (!$row || empty($row['receipt_file'])) {
+        http_response_code(404);
+        exit("No receipt found for this team.");
+    }
+
+    $proof = (string)$row['receipt_file'];
+    $orig  = (string)($row['receipt_original_name'] ?? '');
+    $mime  = (string)($row['receipt_mime'] ?? '');
+
+    // DB stores: uploads/receipts/....
+    $projectRoot = realpath(__DIR__ . '/..');
+    $uploadsDir  = realpath(__DIR__ . '/../uploads');
+    $receiptsDir = realpath(__DIR__ . '/../uploads/receipts');
+
+    // Build absolute path
+    if (starts_with($proof, '/')) {
+        $target = realpath($proof) ?: '';
+    } else {
+        $target = realpath($projectRoot . '/' . ltrim($proof, '/')) ?: '';
+    }
+
+    if ($target === '' || !is_file($target)) {
+        http_response_code(404);
+        exit("Receipt file not found on server.");
+    }
+
+    // Security: allow only inside /uploads (and receipts subfolder)
+    $ok = false;
+    foreach (array_filter([$uploadsDir, $receiptsDir]) as $base) {
+        if (starts_with($target, $base . DIRECTORY_SEPARATOR) || $target === $base) { $ok = true; break; }
+    }
+    if (!$ok) {
+        http_response_code(403);
+        exit("Forbidden file path.");
+    }
+
+    $filename = $orig !== '' ? $orig : basename($target);
+    if ($mime === '') $mime = mime_content_type($target) ?: 'application/octet-stream';
+
+    header('Content-Type: ' . $mime);
+    header('Content-Disposition: attachment; filename="' . str_replace('"', '', $filename) . '"');
+    header('Content-Length: ' . (string)filesize($target));
+    readfile($target);
+    exit;
+}
+
+// ---- Build WHERE (for view & csv) ----
 $where = [];
 $params = [];
 
 if ($q !== '') {
-    $likeParts = [];
-    $likeParts[] = "t.`{$colTeamName}` LIKE :q";
-    if ($colCaptain) $likeParts[] = "t.`{$colCaptain}` LIKE :q";
-    if ($colEmail)   $likeParts[] = "t.`{$colEmail}` LIKE :q";
-    if ($colPhone)   $likeParts[] = "t.`{$colPhone}` LIKE :q";
-    $where[] = "(" . implode(" OR ", $likeParts) . ")";
+    $where[] = "(t.team_name LIKE :q OR t.captain_name LIKE :q OR t.email LIKE :q OR t.phone LIKE :q)";
     $params[':q'] = "%{$q}%";
 }
 
-$hasPaymentsJoin = ($colPayTeamId !== null);
-$statusExpr = ($hasPaymentsJoin && $colPayStatus) ? "COALESCE(p.`{$colPayStatus}`,'')" : "''";
-
 if ($payment === 'paid') {
-    $where[] = "{$statusExpr} IN ('paid','PAID','success','SUCCESS','completed','COMPLETED')";
+    $where[] = "COALESCE(p.status,'') IN ('paid','PAID','success','SUCCESS','completed','COMPLETED')";
 } elseif ($payment === 'unpaid') {
-    if ($hasPaymentsJoin) {
-        $where[] = "({$statusExpr} NOT IN ('paid','PAID','success','SUCCESS','completed','COMPLETED') OR p.`{$colPayTeamId}` IS NULL)";
-    } else {
-        $where[] = "1=1";
-    }
+    $where[] = "(p.id IS NULL OR COALESCE(p.status,'') NOT IN ('paid','PAID','success','SUCCESS','completed','COMPLETED'))";
 }
 
 $whereSql = $where ? ("WHERE " . implode(" AND ", $where)) : "";
 
-// ---- Query builder for teams (used by view and csv) ----
-function fetchTeams(PDO $pdo, array $select, bool $hasPaymentsJoin, string $whereSql, array $params, string $colPayTeamId, string $colTeamId, ?int $limit=null, ?int $offset=null): array {
-    $sql = "
-        SELECT " . implode(", ", $select) . "
-        FROM ctf_teams t
-        " . ($hasPaymentsJoin ? "LEFT JOIN ctf_payments p ON p.`{$colPayTeamId}` = t.`{$colTeamId}`" : "") . "
-        {$whereSql}
-        ORDER BY t.`{$colTeamId}` DESC
-    ";
-    if ($limit !== null && $offset !== null) {
-        $sql .= " LIMIT :limit OFFSET :offset";
-    }
-
-    $stmt = $pdo->prepare($sql);
-    foreach ($params as $k => $v) $stmt->bindValue($k, $v, PDO::PARAM_STR);
-    if ($limit !== null && $offset !== null) {
-        $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-        $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
-    }
-    $stmt->execute();
-    return $stmt->fetchAll(PDO::FETCH_ASSOC);
-}
-
-// ---- Action: Download payment proof (same page) ----
-if ($action === 'download_proof') {
-    $teamId = (int)($_GET['team_id'] ?? 0);
-    if ($teamId <= 0) { http_response_code(400); exit("Invalid team_id"); }
-    if (!$hasPaymentsJoin || !$colPayProof || !$colPayTeamId) { http_response_code(500); exit("Payments table/proof column not available."); }
-
-    $stmt = $pdo->prepare("SELECT p.`{$colPayProof}` FROM ctf_payments p WHERE p.`{$colPayTeamId}` = :tid LIMIT 1");
-    $stmt->execute([':tid' => $teamId]);
-    $proof = (string)($stmt->fetchColumn() ?: '');
-    if ($proof === '') { http_response_code(404); exit("No proof file found."); }
-
-    // Restrict files to /uploads or /logs within project
-    $baseUploads = realpath(__DIR__ . '/../uploads');
-    $baseLogs    = realpath(__DIR__ . '/../logs');
-
-    $path = $proof;
-    if (!starts_with($path, '/')) {
-        $path = realpath(__DIR__ . '/../' . ltrim($proof, '/')) ?: '';
-    } else {
-        $path = realpath($path) ?: '';
-    }
-
-    if ($path === '' || !is_file($path)) { http_response_code(404); exit("File not found."); }
-
-    $ok = false;
-    foreach ([$baseUploads, $baseLogs] as $base) {
-        if ($base && starts_with($path, $base . DIRECTORY_SEPARATOR)) { $ok = true; break; }
-    }
-    if (!$ok) { http_response_code(403); exit("Forbidden path."); }
-
-    $filename = basename($path);
-    $mime = mime_content_type($path) ?: 'application/octet-stream';
-
-    header('Content-Type: ' . $mime);
-    header('Content-Disposition: attachment; filename="' . $filename . '"');
-    header('Content-Length: ' . (string)filesize($path));
-    readfile($path);
-    exit;
-}
-
 // ---- Action: Export CSV (same page) ----
 if ($action === 'csv') {
-    $select = [
-        "t.`{$colTeamId}` AS team_id",
-        "t.`{$colTeamName}` AS team_name",
-    ];
-    if ($colCaptain)   $select[] = "t.`{$colCaptain}` AS captain_name";
-    if ($colEmail)     $select[] = "t.`{$colEmail}` AS email";
-    if ($colPhone)     $select[] = "t.`{$colPhone}` AS phone";
-    if ($colCreatedAt) $select[] = "t.`{$colCreatedAt}` AS registered_at";
-
-    if ($hasPaymentsJoin) {
-        if ($colPayAmount) $select[] = "p.`{$colPayAmount}` AS payment_amount";
-        if ($colPayStatus) $select[] = "p.`{$colPayStatus}` AS payment_status";
-        if ($colPayPaidAt) $select[] = "p.`{$colPayPaidAt}` AS paid_at";
-        if ($colPayProof)  $select[] = "p.`{$colPayProof}` AS proof_file";
-    }
-
-    $rows = fetchTeams($pdo, $select, $hasPaymentsJoin, $whereSql, $params, (string)$colPayTeamId, (string)$colTeamId);
+    $sql = "
+    SELECT
+      t.id AS team_id,
+      t.team_name,
+      t.captain_name,
+      t.email,
+      t.phone,
+      t.created_at AS registered_at,
+      p.amount,
+      p.currency,
+      p.status AS payment_status,
+      p.receipt_file,
+      p.created_at AS payment_created_at
+    FROM ctf_teams t
+    LEFT JOIN ctf_payments p ON p.team_id = t.id
+    {$whereSql}
+    ORDER BY t.id DESC
+    ";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     header('Content-Type: text/csv; charset=UTF-8');
     header('Content-Disposition: attachment; filename="registrations.csv"');
@@ -197,11 +145,11 @@ if ($action === 'csv') {
     exit;
 }
 
-// ---- View: Count + paginated list ----
+// ---- Count for pagination ----
 $sqlCount = "
 SELECT COUNT(*) AS cnt
 FROM ctf_teams t
-" . ($hasPaymentsJoin ? "LEFT JOIN ctf_payments p ON p.`{$colPayTeamId}` = t.`{$colTeamId}`" : "") . "
+LEFT JOIN ctf_payments p ON p.team_id = t.id
 {$whereSql}
 ";
 $stmt = $pdo->prepare($sqlCount);
@@ -209,48 +157,55 @@ $stmt->execute($params);
 $total = (int)$stmt->fetchColumn();
 $totalPages = max(1, (int)ceil($total / $perPage));
 
-$select = [
-    "t.`{$colTeamId}` AS id",
-    "t.`{$colTeamName}` AS team_name",
-];
-if ($colCaptain)   $select[] = "t.`{$colCaptain}` AS captain_name";
-if ($colEmail)     $select[] = "t.`{$colEmail}` AS email";
-if ($colPhone)     $select[] = "t.`{$colPhone}` AS phone";
-if ($colCreatedAt) $select[] = "t.`{$colCreatedAt}` AS created_at";
+// ---- Main page data (include receipt columns) ----
+$sql = "
+SELECT
+  t.id,
+  t.team_name,
+  t.captain_name,
+  t.email,
+  t.phone,
+  t.created_at,
 
-if ($hasPaymentsJoin) {
-    if ($colPayAmount) $select[] = "p.`{$colPayAmount}` AS amount";
-    if ($colPayStatus) $select[] = "p.`{$colPayStatus}` AS payment_status";
-    if ($colPayPaidAt) $select[] = "p.`{$colPayPaidAt}` AS paid_at";
-    if ($colPayProof)  $select[] = "p.`{$colPayProof}` AS proof_file";
-}
+  p.id AS payment_id,
+  p.amount,
+  p.currency,
+  p.status AS payment_status,
+  p.receipt_file,
+  p.receipt_original_name,
+  p.receipt_mime,
+  p.created_at AS payment_created_at
 
-$teams = fetchTeams($pdo, $select, $hasPaymentsJoin, $whereSql, $params, (string)$colPayTeamId, (string)$colTeamId, $perPage, $offset);
+FROM ctf_teams t
+LEFT JOIN ctf_payments p ON p.team_id = t.id
+{$whereSql}
+ORDER BY t.id DESC
+LIMIT :limit OFFSET :offset
+";
+$stmt = $pdo->prepare($sql);
+foreach ($params as $k => $v) $stmt->bindValue($k, $v, PDO::PARAM_STR);
+$stmt->bindValue(':limit', $perPage, PDO::PARAM_INT);
+$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+$stmt->execute();
+$teams = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Members for current page
+// ---- Members for teams on this page ----
+$teamIds = array_map(fn($r) => (int)$r['id'], $teams);
 $membersByTeam = [];
-if ($teams && $colMemTeamId && $colMemName) {
-    $teamIds = array_map(fn($r) => (int)$r['id'], $teams);
+if ($teamIds) {
     $in = implode(',', array_fill(0, count($teamIds), '?'));
-
-    $fields = ["`{$colMemTeamId}` AS team_id", "`{$colMemName}` AS member_name"];
-    if ($colMemEmail) $fields[] = "`{$colMemEmail}` AS member_email";
-
-    $m = $pdo->prepare("SELECT " . implode(',', $fields) . " FROM ctf_team_members WHERE `{$colMemTeamId}` IN ($in) ORDER BY 1 ASC");
+    $m = $pdo->prepare("SELECT team_id, member_name, member_email FROM ctf_team_members WHERE team_id IN ($in) ORDER BY id ASC");
     $m->execute($teamIds);
-
     while ($row = $m->fetch(PDO::FETCH_ASSOC)) {
-        $tid = (int)$row['team_id'];
-        $membersByTeam[$tid][] = $row;
+        $membersByTeam[(int)$row['team_id']][] = $row;
     }
 }
 
-// Build base URL for pagination
+// Links
 $base = "/admin/view_registration.php?q=" . urlencode($q) . "&payment=" . urlencode($payment) . "&page=";
 $prev = max(1, $page - 1);
 $next = min($totalPages, $page + 1);
 $csvLink = "/admin/view_registration.php?action=csv&q=" . urlencode($q) . "&payment=" . urlencode($payment);
-
 ?>
 <!doctype html>
 <html lang="en">
@@ -308,7 +263,7 @@ $csvLink = "/admin/view_registration.php?action=csv&q=" . urlencode($q) . "&paym
             <th>Captain</th>
             <th>Contact</th>
             <th>Members</th>
-            <th>Payment</th>
+            <th>Payment + Receipt</th>
             <th>Registered</th>
           </tr>
         </thead>
@@ -322,11 +277,12 @@ $csvLink = "/admin/view_registration.php?action=csv&q=" . urlencode($q) . "&paym
           $members = $membersByTeam[$tid] ?? [];
           $status = (string)($t['payment_status'] ?? '');
           $isPaid = in_array($status, ['paid','PAID','success','SUCCESS','completed','COMPLETED'], true);
-          $proof = (string)($t['proof_file'] ?? '');
-          $proofLink = "/admin/view_registration.php?action=download_proof&team_id={$tid}";
+
+          $receiptFile = (string)($t['receipt_file'] ?? '');
+          $receiptLink = "/admin/view_registration.php?action=download_receipt&team_id={$tid}";
         ?>
           <tr>
-            <td><strong><?= h((string)($t['team_name'] ?? '')) ?></strong><div class="muted">ID: <?= $tid ?></div></td>
+            <td><strong><?= h((string)$t['team_name']) ?></strong><div class="muted">ID: <?= $tid ?></div></td>
             <td><?= h((string)($t['captain_name'] ?? '')) ?></td>
             <td>
               <div><?= h((string)($t['email'] ?? '')) ?></div>
@@ -354,14 +310,20 @@ $csvLink = "/admin/view_registration.php?action=csv&q=" . urlencode($q) . "&paym
                 <?= $isPaid ? 'Paid' : 'Unpaid' ?>
               </div>
               <div class="muted" style="margin-top:6px;">
-                Amount: <?= h((string)($t['amount'] ?? '')) ?><br>
-                Paid at: <?= h((string)($t['paid_at'] ?? '')) ?>
+                Amount: <?= h((string)($t['amount'] ?? '')) ?> <?= h((string)($t['currency'] ?? '')) ?><br>
+                Status: <?= h($status) ?><br>
+                Payment time: <?= h((string)($t['payment_created_at'] ?? '')) ?>
               </div>
 
-              <?php if ($proof !== ''): ?>
+              <?php if ($receiptFile !== ''): ?>
                 <div style="margin-top:8px;">
-                  <a class="btn secondary" href="<?= h($proofLink) ?>">Download proof</a>
+                  <a class="btn secondary" href="<?= h($receiptLink) ?>">Download receipt</a>
                 </div>
+                <div class="muted" style="margin-top:6px;">
+                  <?= h((string)($t['receipt_original_name'] ?? '')) ?>
+                </div>
+              <?php else: ?>
+                <div class="muted" style="margin-top:8px;">No receipt uploaded</div>
               <?php endif; ?>
             </td>
             <td><?= h((string)($t['created_at'] ?? '')) ?></td>
@@ -371,9 +333,9 @@ $csvLink = "/admin/view_registration.php?action=csv&q=" . urlencode($q) . "&paym
       </table>
 
       <div class="pagination">
-        <a class="btn secondary" href="<?= h($base . $prev) ?>">&larr; Prev</a>
+        <a class="btn secondary" href="<?= h($base . max(1, $page-1)) ?>">&larr; Prev</a>
         <div class="muted" style="padding:10px 0;">Page <?= (int)$page ?> / <?= (int)$totalPages ?></div>
-        <a class="btn secondary" href="<?= h($base . $next) ?>">Next &rarr;</a>
+        <a class="btn secondary" href="<?= h($base . min($totalPages, $page+1)) ?>">Next &rarr;</a>
       </div>
     </div>
   </div>
