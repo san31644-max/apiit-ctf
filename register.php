@@ -18,12 +18,8 @@ session_start();
 require_once __DIR__ . "/includes/page_guard_json.php";
 guard_page_json('register');
 
-// ----------------- DB CONFIG -----------------
-// IMPORTANT: Use your real DB username/password (NOT "pma")
-const DB_HOST = '127.0.0.1';
-const DB_NAME = 'new_apiit';
-const DB_USER = 'YOUR_DB_USER';
-const DB_PASS = 'YOUR_DB_PASSWORD';
+// ✅ Use your existing DB connection (XAMPP root / empty password)
+require_once __DIR__ . "/includes/db.php";
 
 // ----------------- FLASH -----------------
 $success = $_SESSION['success'] ?? '';
@@ -47,18 +43,6 @@ function redirect_with_success($msg){
   $_SESSION['success'] = $msg;
   header("Location: register.php");
   exit;
-}
-function db(): PDO {
-  static $pdo = null;
-  if ($pdo) return $pdo;
-
-  $dsn = "mysql:host=".DB_HOST.";dbname=".DB_NAME.";charset=utf8mb4";
-  $pdo = new PDO($dsn, DB_USER, DB_PASS, [
-    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    PDO::ATTR_EMULATE_PREPARES => false,
-  ]);
-  return $pdo;
 }
 
 // ----------------- HANDLE SUBMIT -----------------
@@ -184,6 +168,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect_with_error("Server error: uploads/receipts directory is not writable.");
   }
 
+  // ✅ IMPORTANT: Read receipt info BEFORE moving the tmp file
+  $receiptOrig = $_FILES['receipt']['name'];
+  $receiptMime = (new finfo(FILEINFO_MIME_TYPE))->file($_FILES['receipt']['tmp_name']) ?: '';
+
   // ---------- Save receipt file ----------
   $safeTeam = preg_replace('/[^a-zA-Z0-9_\-]+/', '_', $_POST['team_name'] ?? 'team');
   $safeUni  = preg_replace('/[^a-zA-Z0-9_\-]+/', '_', $_POST['university'] ?? 'uni');
@@ -195,14 +183,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect_with_error("Failed to upload receipt. Please try again.");
   }
 
-  // ---------- SAVE TO MYSQL (ctf_teams, ctf_team_members, ctf_payments) ----------
+  // ---------- SAVE TO MYSQL ----------
   $receiptPath = "uploads/receipts/" . $filename;
-  $receiptOrig = $_FILES['receipt']['name'];
-  $receiptMime = (new finfo(FILEINFO_MIME_TYPE))->file($_FILES['receipt']['tmp_name']) ?: '';
 
-  $pdo = null;
   try {
-    $pdo = db();
+    global $pdo; // from includes/db.php
     $pdo->beginTransaction();
 
     // 1) Team
@@ -288,8 +273,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     redirect_with_success("Registration submitted! Your 4-member army is registered.");
 
   } catch (Throwable $e) {
-    if ($pdo && $pdo->inTransaction()) $pdo->rollBack();
-    // Remove uploaded receipt so you don't get orphan files
+    if (isset($pdo) && $pdo->inTransaction()) $pdo->rollBack();
     @unlink($dest);
     redirect_with_error("DB error: " . $e->getMessage());
   }
