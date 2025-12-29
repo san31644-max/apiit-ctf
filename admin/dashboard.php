@@ -322,6 +322,7 @@ details summary:hover{ text-decoration: underline; }
 
     <nav class="nav">
       <a class="active" href="dashboard.php">🏠 Dashboard</a>
+      <a class="active" href="dashboard.php">🏠 Registrations</a>
       <a href="add_challenge.php">➕ Add Challenge</a>
       <a href="manage_challenges.php">📋 Manage Challenges</a>
       <a href="manage_users.php">👥 Manage Users</a>
