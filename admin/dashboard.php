@@ -1,11 +1,7 @@
 <?php
+declare(strict_types=1);
 session_start();
 require_once __DIR__ . "/../includes/db.php";
-
-/*
-  Atlantis Admin Dashboard (theme-matched)
-  Fix: Submissions per hour chart (last 24 hours, ordered, fills missing hours)
-*/
 
 // Only admin access
 if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'admin') {
@@ -22,38 +18,6 @@ $active_users = (int)$pdo->query("
   FROM login_logs
   WHERE login_time > (NOW() - INTERVAL 5 MINUTE)
 ")->fetchColumn();
-
-/* ---------------- Chart (FIXED): submissions per hour (last 24 hours) ----------------
-   We group by full hour timestamp to avoid mixing different days.
-*/
-$submissions_per_hour = $pdo->query("
-  SELECT DATE_FORMAT(submission_time, '%Y-%m-%d %H:00') AS hour_bucket, COUNT(*) AS cnt
-  FROM challenge_logs
-  WHERE submission_time >= (NOW() - INTERVAL 24 HOUR)
-  GROUP BY hour_bucket
-  ORDER BY hour_bucket ASC
-")->fetchAll(PDO::FETCH_ASSOC);
-
-// Build a complete last-24-hours timeline (including missing hours)
-$labels = [];
-$data = [];
-$counts = [];
-foreach ($submissions_per_hour as $row) {
-  $counts[$row['hour_bucket']] = (int)$row['cnt'];
-}
-
-$dt = new DateTime('now');
-$dt->modify('-23 hours'); // start 23 hours ago, total 24 points including current hour
-for ($i = 0; $i < 24; $i++) {
-  $bucket = $dt->format('Y-m-d H:00');
-  // Display label as "HH:00" (you can change to full date if you want)
-  $labels[] = $dt->format('H:00');
-  $data[] = $counts[$bucket] ?? 0;
-  $dt->modify('+1 hour');
-}
-
-$chart_labels = $labels;
-$chart_data = $data;
 
 /* Recent submissions */
 $logs = $pdo->query("
@@ -82,7 +46,7 @@ $users = $pdo->query("
   ORDER BY u.score DESC
 ")->fetchAll(PDO::FETCH_ASSOC);
 
-/* ---------------- NEW: Team registration stats ---------------- */
+/* ---------------- Team registration stats ---------------- */
 $teams_total = 0; $teams_pending = 0; $teams_verified = 0; $teams_rejected = 0;
 $teamRegs = [];
 $membersByTeam = [];
@@ -93,7 +57,6 @@ try {
   $teams_verified = (int)$pdo->query("SELECT COUNT(*) FROM ctf_payments WHERE status='verified'")->fetchColumn();
   $teams_rejected = (int)$pdo->query("SELECT COUNT(*) FROM ctf_payments WHERE status='rejected'")->fetchColumn();
 
-  // IMPORTANT: use latest payment per team if you might have multiple rows
   $teamRegs = $pdo->query("
     SELECT
       t.id AS team_id,
@@ -137,9 +100,7 @@ try {
       $membersByTeam[(int)$m['team_id']][] = $m;
     }
   }
-} catch (Exception $e) {
-  // dashboard still loads if registration tables missing
-}
+} catch (Exception $e) {}
 ?>
 <!doctype html>
 <html lang="en">
@@ -152,177 +113,59 @@ try {
 
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Share+Tech+Mono&display=swap');
-
-:root{
-  --aqua:#38f7ff;
-  --aqua2:#22d3ee;
-  --gold:#f5d27b;
-  --ink:#000f1d;
-}
-
+:root{ --aqua:#38f7ff; --gold:#f5d27b; }
 html,body{height:100%;}
-body{
-  font-family:'Cinzel',serif;
-  background:#000;
-  color:#e6faff;
-  overflow-x:hidden;
-}
-
-/* ===== BACKGROUND VIDEO ===== */
+body{font-family:'Cinzel',serif;background:#000;color:#e6faff;overflow-x:hidden;}
 .video-bg{position:fixed; inset:0; z-index:-6; overflow:hidden; background:#00101f;}
-.video-bg video{width:100%;height:100%;object-fit:cover;object-position:center;transform:scale(1.03);filter:saturate(1.05) contrast(1.05);}
-.video-overlay{
-  position:fixed; inset:0; z-index:-5; pointer-events:none;
-  background:
-    radial-gradient(900px 420px at 50% 10%, rgba(56,247,255,0.14), transparent 62%),
-    linear-gradient(180deg, rgba(0,0,0,0.20), rgba(0,0,0,0.36));
+.video-bg video{width:100%;height:100%;object-fit:cover;transform:scale(1.03);}
+.video-overlay{position:fixed; inset:0; z-index:-5; pointer-events:none;
+  background:radial-gradient(900px 420px at 50% 10%, rgba(56,247,255,0.14), transparent 62%),
+           linear-gradient(180deg, rgba(0,0,0,0.20), rgba(0,0,0,0.36));
 }
-.caustics{
-  position:fixed; inset:0; z-index:-4; pointer-events:none;
+.caustics{position:fixed; inset:0; z-index:-4; pointer-events:none; opacity:.28; mix-blend-mode:screen;
   background:
     repeating-radial-gradient(circle at 30% 40%, rgba(56,247,255,.05) 0 2px, transparent 3px 14px),
     repeating-radial-gradient(circle at 70% 60%, rgba(255,255,255,.03) 0 1px, transparent 2px 18px);
-  opacity:.28; mix-blend-mode:screen; animation: causticMove 7s linear infinite;
+  animation: causticMove 7s linear infinite;
 }
 @keyframes causticMove{from{background-position:0 0,0 0;}to{background-position:0 220px,0 -180px;}}
-
-/* ===== LAYOUT ===== */
 .shell{height:100vh; display:flex;}
-.sidebar{
-  width:270px;
-  background: rgba(0, 16, 28, 0.40);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border-right: 1px solid rgba(56,247,255,0.16);
-  box-shadow: 0 0 60px rgba(56,247,255,0.10);
-}
-.brand{
-  padding:18px 16px;
-  border-bottom: 1px solid rgba(56,247,255,0.16);
-}
-.brand .title{
-  font-weight:900;
-  letter-spacing:.18em;
-  color: rgba(56,247,255,0.95);
-  text-shadow: 0 0 18px rgba(56,247,255,0.30);
-}
-.brand .sub{
-  margin-top:6px;
-  font-family:'Share Tech Mono', monospace;
-  font-size:12px;
-  color: rgba(245,210,123,0.90);
-  opacity:.9;
-  letter-spacing:.10em;
-}
-
-.nav a{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  padding:12px 14px;
-  color: rgba(230,250,255,0.88);
-  border-bottom: 1px solid rgba(255,255,255,0.04);
-  transition:.22s;
-  font-family:'Share Tech Mono', monospace;
-  letter-spacing:.06em;
-}
-.nav a:hover{
-  background: rgba(56,247,255,0.10);
-  color: rgba(56,247,255,0.95);
-}
-.nav a.active{
-  background: rgba(56,247,255,0.14);
-  color: rgba(56,247,255,0.98);
-  border-left: 3px solid rgba(245,210,123,0.9);
-}
-
-.main{
-  flex:1;
-  overflow:auto;
-  padding:22px;
-}
-
-/* ===== GLASS PANELS ===== */
-.panel{
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  background: rgba(0, 14, 24, 0.22);
-  border: 1px solid rgba(56,247,255,0.18);
-  box-shadow: 0 0 55px rgba(56,247,255,0.12), inset 0 0 18px rgba(255,255,255,0.05);
-  border-radius: 18px;
-}
-
-.h1{
-  font-weight:900;
-  letter-spacing:.14em;
-  color: rgba(56,247,255,0.92);
-  text-shadow: 0 0 18px rgba(56,247,255,0.22);
-}
-.mono{ font-family:'Share Tech Mono', monospace; }
-
-/* ===== STAT CARDS ===== */
-.stat{
-  padding:16px;
-  border-radius:16px;
-  border:1px solid rgba(56,247,255,0.18);
-  background: rgba(255,255,255,0.04);
-  box-shadow: 0 0 30px rgba(56,247,255,0.08);
-}
-.stat .k{color: rgba(230,250,255,0.75); font-family:'Share Tech Mono', monospace; letter-spacing:.08em;}
-.stat .v{font-size:22px; font-weight:900; color: rgba(56,247,255,0.95);}
-.stat .sub{font-size:12px; color: rgba(245,210,123,0.90); margin-top:6px; font-family:'Share Tech Mono', monospace;}
-
-/* ===== TABLES ===== */
+.sidebar{width:270px;background:rgba(0,16,28,.40);backdrop-filter:blur(14px);border-right:1px solid rgba(56,247,255,.16);}
+.brand{padding:18px 16px;border-bottom:1px solid rgba(56,247,255,.16);}
+.brand .title{font-weight:900;letter-spacing:.18em;color:rgba(56,247,255,.95);}
+.brand .sub{margin-top:6px;font-family:'Share Tech Mono', monospace;font-size:12px;color:rgba(245,210,123,.90);letter-spacing:.10em;}
+.nav a{display:flex;align-items:center;gap:10px;padding:12px 14px;font-family:'Share Tech Mono', monospace;
+  color:rgba(230,250,255,.88);border-bottom:1px solid rgba(255,255,255,.04);transition:.22s;}
+.nav a:hover{background:rgba(56,247,255,.10);color:rgba(56,247,255,.95);}
+.nav a.active{background:rgba(56,247,255,.14);border-left:3px solid rgba(245,210,123,.9);color:rgba(56,247,255,.98);}
+.main{flex:1;overflow:auto;padding:22px;}
+.panel{backdrop-filter:blur(14px);background:rgba(0,14,24,.22);border:1px solid rgba(56,247,255,.18);
+  box-shadow:0 0 55px rgba(56,247,255,.12), inset 0 0 18px rgba(255,255,255,.05);border-radius:18px;}
+.h1{font-weight:900;letter-spacing:.14em;color:rgba(56,247,255,.92);}
+.mono{font-family:'Share Tech Mono', monospace;}
+.small{font-size:12px;color:rgba(230,250,255,.72);}
+.stat{padding:16px;border-radius:16px;border:1px solid rgba(56,247,255,.18);background:rgba(255,255,255,.04);}
+.stat .k{color:rgba(230,250,255,.75);font-family:'Share Tech Mono', monospace;letter-spacing:.08em;}
+.stat .v{font-size:22px;font-weight:900;color:rgba(56,247,255,.95);}
+.stat .sub{font-size:12px;color:rgba(245,210,123,.90);margin-top:6px;font-family:'Share Tech Mono', monospace;}
 .table-wrap{overflow-x:auto;}
-.table{
-  width:100%;
-  border-collapse: collapse;
-  font-family:'Share Tech Mono', monospace;
-}
-.table th, .table td{
-  border:1px solid rgba(56,247,255,0.18);
-  padding:10px;
-  vertical-align: top;
-}
-.table thead th{
-  background: rgba(56,247,255,0.10);
-  color: rgba(230,250,255,0.92);
-  letter-spacing:.08em;
-}
-.table tbody tr:hover{
-  background: rgba(56,247,255,0.06);
-}
-
-/* badges */
-.badge{
-  display:inline-flex;
-  align-items:center;
-  padding:2px 10px;
-  border-radius:999px;
-  font-weight:900;
-  letter-spacing:.08em;
-  font-size:12px;
-}
-.b-pending{background: rgba(245,158,11,.14); color:#fbbf24; border:1px solid rgba(245,158,11,.35);}
+.table{width:100%;border-collapse:collapse;font-family:'Share Tech Mono', monospace;}
+.table th,.table td{border:1px solid rgba(56,247,255,.18);padding:10px;vertical-align:top;}
+.table thead th{background:rgba(56,247,255,.10);color:rgba(230,250,255,.92);letter-spacing:.08em;}
+.table tbody tr:hover{background:rgba(56,247,255,.06);}
+.badge{display:inline-flex;align-items:center;padding:2px 10px;border-radius:999px;font-weight:900;letter-spacing:.08em;font-size:12px;}
 .b-verified{background: rgba(34,197,94,.12); color:#22c55e; border:1px solid rgba(34,197,94,.35);}
+.b-pending{background: rgba(245,158,11,.14); color:#fbbf24; border:1px solid rgba(245,158,11,.35);}
 .b-rejected{background: rgba(239,68,68,.12); color:#ef4444; border:1px solid rgba(239,68,68,.35);}
 .b-na{background: rgba(148,163,184,.10); color:#94a3b8; border:1px solid rgba(148,163,184,.22);}
-
-.link{ color: rgba(56,247,255,0.92); text-decoration: none; }
-.link:hover{ text-decoration: underline; }
-
-details summary{ cursor:pointer; color: rgba(56,247,255,0.92); }
-details summary:hover{ text-decoration: underline; }
-
-.small{ font-size:12px; color: rgba(230,250,255,0.72); }
-
-.status-correct { color:#34d399; font-weight:900; }
-.status-incorrect { color:#fb7185; font-weight:900; }
+.link{color:rgba(56,247,255,.92);text-decoration:none;}
+.link:hover{text-decoration:underline;}
+.status-correct{color:#34d399;font-weight:900;}
+.status-incorrect{color:#fb7185;font-weight:900;}
 </style>
 </head>
 
 <body>
-<!-- Atlantis background -->
 <div class="video-bg">
   <video autoplay muted loop playsinline preload="auto">
     <source src="../assets/atlantis.mp4" type="video/mp4">
@@ -332,13 +175,11 @@ details summary:hover{ text-decoration: underline; }
 <div class="caustics"></div>
 
 <div class="shell">
-  <!-- SIDEBAR -->
   <aside class="sidebar">
     <div class="brand">
       <div class="title">ATLANTIS CTF</div>
       <div class="sub">CONTROL ROOM • ADMIN</div>
     </div>
-
     <nav class="nav">
       <a class="active" href="dashboard.php">🏠 Dashboard</a>
       <a href="view_registration.php">🧾 Registrations</a>
@@ -351,9 +192,7 @@ details summary:hover{ text-decoration: underline; }
     </nav>
   </aside>
 
-  <!-- MAIN -->
   <main class="main space-y-6">
-
     <div class="panel p-6">
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
@@ -366,93 +205,126 @@ details summary:hover{ text-decoration: underline; }
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
-        <div class="stat">
-          <div class="k">TOTAL USERS</div>
-          <div class="v"><?= $total_users ?></div>
-          <div class="sub">non-admin accounts</div>
-        </div>
-        <div class="stat">
-          <div class="k">ACTIVE USERS</div>
-          <div class="v"><?= $active_users ?></div>
-          <div class="sub">last 5 minutes</div>
-        </div>
-        <div class="stat">
-          <div class="k">SOLVES</div>
-          <div class="v"><?= $total_challenges_solved ?></div>
-          <div class="sub">total solves</div>
-        </div>
-        <div class="stat">
-          <div class="k">ARMIES REGISTERED</div>
-          <div class="v"><?= $teams_total ?></div>
-          <div class="sub">Pending <?= $teams_pending ?> • Verified <?= $teams_verified ?> • Rejected <?= $teams_rejected ?></div>
-        </div>
+        <div class="stat"><div class="k">TOTAL USERS</div><div class="v"><?= $total_users ?></div><div class="sub">non-admin accounts</div></div>
+        <div class="stat"><div class="k">ACTIVE USERS</div><div class="v"><?= $active_users ?></div><div class="sub">last 5 minutes</div></div>
+        <div class="stat"><div class="k">SOLVES</div><div class="v"><?= $total_challenges_solved ?></div><div class="sub">total solves</div></div>
+        <div class="stat"><div class="k">ARMIES REGISTERED</div><div class="v"><?= $teams_total ?></div><div class="sub">Pending <?= $teams_pending ?> • Verified <?= $teams_verified ?> • Rejected <?= $teams_rejected ?></div></div>
       </div>
     </div>
 
-    <!-- CHART (FIXED) -->
+    <!-- LIVE CHART -->
     <div class="panel p-6">
       <div class="flex items-center justify-between gap-3 mb-3">
-        <div class="h1 text-lg">SUBMISSIONS — LAST 24 HOURS</div>
-        <div class="mono small">auto-filled empty hours</div>
+        <div class="h1 text-lg">LIVE SUBMISSIONS (LAST 60 MINUTES)</div>
+        <div class="mono small">auto refresh: <span id="refreshTag">—</span></div>
       </div>
-
-      <!-- IMPORTANT: give canvas a fixed height via wrapper -->
       <div style="height: 280px;">
         <canvas id="submissionsChart"></canvas>
+      </div>
+    </div>
+
+    <!-- TOP IPs -->
+    <div class="panel p-6">
+      <div class="flex items-center justify-between gap-3 mb-3">
+        <div class="h1 text-lg">TOP IPs (LAST 30 MINUTES)</div>
+        <div class="mono small">updates with chart</div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="table" id="ipTable">
+          <thead><tr><th>IP ADDRESS</th><th>SUBMISSIONS</th></tr></thead>
+          <tbody>
+            <tr><td colspan="2" class="small" style="text-align:center;padding:14px;">Loading…</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
     <script>
     document.addEventListener('DOMContentLoaded', () => {
       const el = document.getElementById('submissionsChart');
+      const refreshTag = document.getElementById('refreshTag');
+      const ipTableBody = document.querySelector('#ipTable tbody');
+
       if (!el) return;
 
-      // In case Chart.js failed to load (CDN blocked), show a readable message
       if (typeof Chart === 'undefined') {
-        el.parentElement.innerHTML = '<div class="mono small">Chart.js not loaded (CDN blocked). Check network / mixed content.</div>';
+        el.parentElement.innerHTML = '<div class="mono small">Chart.js not loaded. CDN blocked / mixed content.</div>';
         return;
       }
 
-      const labels = <?= json_encode($chart_labels, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
-      const values = <?= json_encode($chart_data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
-
-      new Chart(el.getContext('2d'), {
+      // Create empty chart first
+      const chart = new Chart(el.getContext('2d'), {
         type: 'line',
         data: {
-          labels,
+          labels: [],
           datasets: [{
-            label: 'Submissions / Hour',
-            data: values,
+            label: 'Submissions / Minute',
+            data: [],
             borderColor: '#38f7ff',
             backgroundColor: 'rgba(56,247,255,0.18)',
             fill: true,
             tension: 0.35,
-            pointRadius: 3,
-            pointHoverRadius: 5
+            pointRadius: 2
           }]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            legend: { labels: { color: '#e6faff' } },
-            tooltip: { enabled: true }
+            legend: { labels: { color: '#e6faff' } }
           },
           scales: {
-            x: {
-              ticks: { color:'#e6faff' },
-              grid: { color: 'rgba(255,255,255,0.08)' }
-            },
-            y: {
-              beginAtZero: true,
-              ticks: { color:'#e6faff', precision: 0 },
-              grid: { color: 'rgba(255,255,255,0.08)' }
-            }
+            x: { ticks: { color:'#e6faff' }, grid: { color:'rgba(255,255,255,0.08)' } },
+            y: { beginAtZero:true, ticks: { color:'#e6faff', precision:0 }, grid: { color:'rgba(255,255,255,0.08)' } }
           }
         }
       });
+
+      async function refresh() {
+        try {
+          const res = await fetch('chart_data.php', { cache: 'no-store' });
+          const json = await res.json();
+
+          if (!json.ok) throw new Error(json.error || 'API error');
+
+          chart.data.labels = json.labels || [];
+          chart.data.datasets[0].data = json.counts || [];
+          chart.update();
+
+          // Refresh top IP table
+          const ips = json.top_ips || [];
+          if (!ips.length) {
+            ipTableBody.innerHTML = `<tr><td colspan="2" class="small" style="text-align:center;padding:14px;">No submissions in last 30 minutes.</td></tr>`;
+          } else {
+            ipTableBody.innerHTML = ips.map(r => `
+              <tr>
+                <td>${escapeHtml(r.ip_address || '')}</td>
+                <td>${Number(r.cnt || 0)}</td>
+              </tr>
+            `).join('');
+          }
+
+          refreshTag.textContent = json.server_time ? `Updated: ${json.server_time}` : 'Updated';
+        } catch (e) {
+          refreshTag.textContent = 'Update failed';
+          console.error(e);
+        }
+      }
+
+      function escapeHtml(s){
+        return String(s).replace(/[&<>"']/g, c => ({
+          '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'
+        }[c]));
+      }
+
+      // Initial + every 30 seconds
+      refresh();
+      setInterval(refresh, 30000);
     });
     </script>
+
+    <!-- (Keep the rest of your dashboard sections like registrations/users/logs exactly as you already have) -->
 
     <!-- TEAM REGISTRATIONS -->
     <div class="panel p-6">
@@ -482,11 +354,7 @@ details summary:hover{ text-decoration: underline; }
           </thead>
           <tbody>
           <?php if (empty($teamRegs)): ?>
-            <tr>
-              <td colspan="7" class="small" style="text-align:center; padding:16px;">
-                No registrations yet (or registration tables not created).
-              </td>
-            </tr>
+            <tr><td colspan="7" class="small" style="text-align:center; padding:16px;">No registrations yet.</td></tr>
           <?php else: ?>
             <?php foreach($teamRegs as $t): ?>
               <?php
@@ -500,19 +368,13 @@ details summary:hover{ text-decoration: underline; }
               <tr>
                 <td><?= htmlspecialchars($t['university_name'] ?? '') ?></td>
                 <td>
-                  <div style="font-weight:900; color:rgba(230,250,255,0.95);">
-                    <?= htmlspecialchars($t['team_name'] ?? '') ?>
-                  </div>
+                  <div style="font-weight:900; color:rgba(230,250,255,0.95);"><?= htmlspecialchars($t['team_name'] ?? '') ?></div>
                   <div class="small mono">ID: <?= (int)($t['team_id'] ?? 0) ?> • Members: <?= (int)($t['member_count'] ?? 0) ?>/4</div>
                 </td>
                 <td class="small">
-                  <div><span style="color:rgba(56,247,255,0.92); font-weight:900;">Leader:</span>
-                    <?= htmlspecialchars($t['leader_name'] ?? '') ?>
-                  </div>
+                  <div><span style="color:rgba(56,247,255,0.92); font-weight:900;">Leader:</span> <?= htmlspecialchars($t['leader_name'] ?? '') ?></div>
                   <div><?= htmlspecialchars($t['leader_email'] ?? '') ?> • <?= htmlspecialchars($t['leader_phone'] ?? '') ?></div>
-                  <div style="margin-top:8px;"><span style="color:rgba(56,247,255,0.92); font-weight:900;">Contact:</span>
-                    <?= htmlspecialchars($t['contact_name'] ?? '') ?>
-                  </div>
+                  <div style="margin-top:8px;"><span style="color:rgba(56,247,255,0.92); font-weight:900;">Contact:</span> <?= htmlspecialchars($t['contact_name'] ?? '') ?></div>
                   <div><?= htmlspecialchars($t['contact_email'] ?? '') ?> • <?= htmlspecialchars($t['contact_phone'] ?? '') ?></div>
                 </td>
                 <td class="small">
@@ -556,15 +418,7 @@ details summary:hover{ text-decoration: underline; }
       <div class="h1 text-lg mb-3">USER ACTIVITY</div>
       <div class="table-wrap">
         <table class="table">
-          <thead>
-            <tr>
-              <th>USERNAME</th>
-              <th>SCORE</th>
-              <th>LAST LOGIN</th>
-              <th>IP</th>
-              <th>LOGS</th>
-            </tr>
-          </thead>
+          <thead><tr><th>USERNAME</th><th>SCORE</th><th>LAST LOGIN</th><th>IP</th><th>LOGS</th></tr></thead>
           <tbody>
           <?php foreach($users as $u): ?>
             <tr>
@@ -585,16 +439,7 @@ details summary:hover{ text-decoration: underline; }
       <div class="h1 text-lg mb-3">RECENT CHALLENGE SUBMISSIONS</div>
       <div class="table-wrap">
         <table class="table">
-          <thead>
-            <tr>
-              <th>USER</th>
-              <th>CHALLENGE</th>
-              <th>FLAG</th>
-              <th>STATUS</th>
-              <th>IP</th>
-              <th>TIME</th>
-            </tr>
-          </thead>
+          <thead><tr><th>USER</th><th>CHALLENGE</th><th>FLAG</th><th>STATUS</th><th>IP</th><th>TIME</th></tr></thead>
           <tbody>
           <?php foreach($logs as $log): ?>
             <tr>
