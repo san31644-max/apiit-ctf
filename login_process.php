@@ -2,42 +2,70 @@
 session_start();
 require_once __DIR__ . "/includes/db.php";
 
-$username = $_POST['username'] ?? '';
-$password = $_POST['password'] ?? '';
+header('Content-Type: application/json; charset=utf-8');
 
-// For hardcoded admin login (optional)
-if($username === 'admin' && $password === 'admin123') {
-    $_SESSION['user_id'] = 1;  // fixed admin ID
-    $_SESSION['username'] = 'admin';
-    $_SESSION['role'] = 'admin';
-    header("Location: admin/dashboard.php");
-    exit;
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+  http_response_code(405);
+  echo json_encode(['ok' => false, 'message' => 'Method not allowed']);
+  exit;
 }
 
-// Check DB for any user
-$stmt = $pdo->prepare("SELECT * FROM users WHERE username = ?");
+$username = trim($_POST['username'] ?? '');
+$password = (string)($_POST['password'] ?? '');
+
+if ($username === '' || $password === '') {
+  http_response_code(400);
+  echo json_encode(['ok' => false, 'message' => 'Missing credentials']);
+  exit;
+}
+
+/* OPTIONAL hardcoded admin */
+if ($username === 'admin' && $password === 'admin123') {
+  session_regenerate_id(true);
+  $_SESSION['user_id'] = 1;
+  $_SESSION['username'] = 'admin';
+  $_SESSION['role'] = 'admin';
+
+  echo json_encode(['ok' => true, 'redirect' => 'admin/dashboard.php']);
+  exit;
+}
+
+/* DB user */
+$stmt = $pdo->prepare("SELECT * FROM users WHERE username = ? LIMIT 1");
 $stmt->execute([$username]);
 $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-if($user) {
-    // Use plain password check or password_verify depending on your DB
-    if($password === $user['password'] || password_verify($password, $user['password'])) {
-        $_SESSION['user_id'] = $user['id'];
-        $_SESSION['username'] = $user['username'];
-        $_SESSION['role'] = $user['role'];  // <-- Important: take role from DB
-
-        // Redirect based on role
-        if($user['role'] === 'admin') {
-            header("Location: admin/dashboard.php");
-        } else {
-            header("Location: user/dashboard.php");
-        }
-        exit;
-    } else {
-        header("Location: index.php?error=invalid_password");
-        exit;
-    }
-} else {
-    header("Location: index.php?error=user_not_found");
-    exit;
+if (!$user) {
+  http_response_code(401);
+  echo json_encode(['ok' => false, 'message' => 'User not found']);
+  exit;
 }
+
+/**
+ * IMPORTANT SECURITY NOTE:
+ * Your code checks BOTH plain compare and password_verify.
+ * Keep it only if your DB contains some plain passwords.
+ * Best: store only password_hash and use password_verify only.
+ */
+$passOk = false;
+if (isset($user['password'])) {
+  // supports both plain + hashed (your current behavior)
+  if ($password === $user['password'] || password_verify($password, $user['password'])) {
+    $passOk = true;
+  }
+}
+
+if (!$passOk) {
+  http_response_code(401);
+  echo json_encode(['ok' => false, 'message' => 'Invalid password']);
+  exit;
+}
+
+session_regenerate_id(true);
+
+$_SESSION['user_id']  = $user['id'];
+$_SESSION['username'] = $user['username'];
+$_SESSION['role']     = $user['role']; // from DB
+
+$redirect = ($user['role'] === 'admin') ? 'admin/dashboard.php' : 'user/dashboard.php';
+echo json_encode(['ok' => true, 'redirect' => $redirect]);

@@ -1,12 +1,4 @@
 <?php
-require_once __DIR__ . "/includes/ip_logger_file.php";
-
-// If you're behind Nginx reverse proxy / Cloudflare, add proxy IPs here.
-// If not, keep empty.
-$trustedProxies = [];
-
-log_ip_to_file((int)$_SESSION['user_id'], (string)$_SESSION['username'], (string)$_SESSION['role'], 'login', $trustedProxies);
-
 session_set_cookie_params([
   'lifetime' => 0,
   'path' => '/',
@@ -22,9 +14,6 @@ if (isset($_SESSION['user_id'])) {
     : "user/dashboard.php"));
   exit;
 }
-
-$error = $_SESSION['error'] ?? '';
-unset($_SESSION['error']);
 ?>
 <!doctype html>
 <html lang="en">
@@ -32,7 +21,6 @@ unset($_SESSION['error']);
 <meta charset="utf-8">
 <title>Atlantis Gateway</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-
 <script src="https://cdn.tailwindcss.com"></script>
 
 <style>
@@ -70,8 +58,6 @@ body{
   transform:scale(1.03);
   filter:saturate(1.05) contrast(1.05);
 }
-
-/* light tint (video still visible) */
 .video-overlay{
   position:fixed;
   inset:0;
@@ -81,8 +67,6 @@ body{
     radial-gradient(900px 420px at 50% 12%, rgba(56,247,255,0.14), transparent 62%),
     linear-gradient(180deg, rgba(0,0,0,0.15), rgba(0,0,0,0.30));
 }
-
-/* caustics shimmer */
 .caustics{
   position:fixed;
   inset:0;
@@ -271,8 +255,7 @@ body{
   font-weight: 800;
 }
 
-/* ================= OUTSIDE CTA: "REGISTER YOUR ARMY" ================= */
-/* This sits OUTSIDE the login card and looks like a highlighted callout */
+/* ================= OUTSIDE CTA ================= */
 .army-cta{
   position: fixed;
   left: 50%;
@@ -291,8 +274,6 @@ body{
     0 0 30px rgba(245,210,123,0.10);
   overflow: hidden;
 }
-
-/* animated glow sweep */
 .army-cta::before{
   content:"";
   position:absolute;
@@ -309,7 +290,6 @@ body{
   from { transform: translate3d(-4%, -2%, 0) rotate(-6deg); }
   to   { transform: translate3d( 4%,  2%, 0) rotate( 6deg); }
 }
-
 .army-cta-inner{
   position: relative;
   display: flex;
@@ -321,14 +301,12 @@ body{
   background: rgba(255,255,255,0.03);
   border: 1px solid rgba(56,247,255,0.18);
 }
-
 .army-copy{
   display:flex;
   align-items:center;
   gap: 12px;
   min-width: 0;
 }
-
 .badge-4{
   flex: 0 0 auto;
   width: 44px;
@@ -342,11 +320,7 @@ body{
   background: linear-gradient(135deg, rgba(56,247,255,0.95), rgba(34,211,238,0.85), rgba(245,210,123,0.70));
   box-shadow: 0 0 22px rgba(56,247,255,0.30);
 }
-
-.army-text{
-  min-width: 0;
-  line-height: 1.05;
-}
+.army-text{ min-width:0; line-height:1.05; }
 .army-text .top{
   font-size: 0.92rem;
   letter-spacing: 0.08em;
@@ -364,8 +338,6 @@ body{
   overflow: hidden;
   text-overflow: ellipsis;
 }
-
-/* CTA button */
 .army-btn{
   flex: 0 0 auto;
   display:inline-flex;
@@ -386,18 +358,202 @@ body{
   box-shadow: 0 0 34px rgba(56,247,255,0.45), 0 0 26px rgba(245,210,123,0.18);
 }
 .army-btn:active{ transform: translateY(0px); }
-
 .arrow{
   font-family: 'Share Tech Mono', monospace;
   font-size: 1.05rem;
   opacity: .95;
 }
-
-/* on very small screens, stack nicely */
 @media (max-width: 420px){
   .army-cta-inner{ padding: 10px; }
   .army-btn{ padding: 10px 12px; letter-spacing: 0.06em; }
   .army-text .top{ font-size: 0.86rem; }
+}
+
+/* ================= GRAND DOOR TRANSITION OVERLAY ================= */
+.gate-overlay{
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: none;
+  pointer-events: none;
+}
+.gate-overlay.on{
+  display: block;
+  pointer-events: all;
+}
+
+/* underwater fog */
+.gate-fog{
+  position:absolute; inset:0;
+  background:
+    radial-gradient(900px 420px at 50% 15%, rgba(56,247,255,0.22), transparent 65%),
+    radial-gradient(700px 520px at 30% 70%, rgba(34,211,238,0.10), transparent 60%),
+    linear-gradient(180deg, rgba(0,0,0,0.35), rgba(0,0,0,0.75));
+  animation: fogPulse 1.8s ease-in-out infinite alternate;
+}
+@keyframes fogPulse{
+  from{ filter: blur(0px); opacity: .85; }
+  to{ filter: blur(1px); opacity: 1; }
+}
+
+/* center beam */
+.gate-beam{
+  position:absolute;
+  left:50%; top:0;
+  width: 520px;
+  height: 100%;
+  transform: translateX(-50%);
+  background:
+    radial-gradient(circle at 50% 12%, rgba(245,210,123,0.18), transparent 58%),
+    linear-gradient(180deg, rgba(56,247,255,0.00), rgba(56,247,255,0.14), rgba(245,210,123,0.08));
+  clip-path: polygon(50% 0%, 62% 0%, 100% 100%, 0% 100%, 38% 0%);
+  opacity: 0;
+}
+
+/* doors */
+.gate-doors{
+  position:absolute; inset:0;
+  display:flex;
+}
+.door{
+  flex: 1 1 50%;
+  position: relative;
+  background:
+    radial-gradient(500px 220px at 50% 35%, rgba(56,247,255,0.12), transparent 65%),
+    linear-gradient(180deg, rgba(0, 28, 46, 0.95), rgba(0, 10, 20, 0.98));
+  box-shadow: inset 0 0 120px rgba(0,0,0,0.65);
+  border-right: 1px solid rgba(56,247,255,0.12);
+}
+.door.right{ border-right: none; border-left: 1px solid rgba(56,247,255,0.12); }
+
+/* runes on doors */
+.door::before{
+  content:"";
+  position:absolute; inset:-20%;
+  background:
+    repeating-linear-gradient(90deg, rgba(56,247,255,0.06) 0 2px, transparent 2px 18px),
+    repeating-linear-gradient(180deg, rgba(245,210,123,0.05) 0 1px, transparent 1px 22px),
+    radial-gradient(260px 180px at 50% 45%, rgba(56,247,255,0.10), transparent 70%);
+  opacity:.55;
+  filter: blur(0.2px);
+  mix-blend-mode: screen;
+  transform: rotate(-2deg);
+}
+
+/* center seal */
+.gate-seal{
+  position:absolute;
+  left:50%; top:50%;
+  transform: translate(-50%,-50%);
+  width: 190px; height: 190px;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(56,247,255,0.18), rgba(0,0,0,0.25) 62%, rgba(0,0,0,0.6));
+  border: 1px solid rgba(245,210,123,0.22);
+  box-shadow: 0 0 80px rgba(56,247,255,0.22), inset 0 0 30px rgba(255,255,255,0.06);
+  display:grid;
+  place-items:center;
+  opacity: 0;
+}
+.gate-seal span{
+  font-family:'Share Tech Mono', monospace;
+  font-size: 52px;
+  color: rgba(245,210,123,0.92);
+  text-shadow: 0 0 18px rgba(245,210,123,0.20), 0 0 22px rgba(56,247,255,0.18);
+}
+
+/* particles / bubbles */
+.gate-bubbles{
+  position:absolute; inset:0;
+  overflow:hidden;
+  opacity: 0;
+}
+.b{
+  position:absolute;
+  bottom: -60px;
+  width: 10px; height: 10px;
+  border-radius: 999px;
+  background: rgba(56,247,255,0.22);
+  box-shadow: 0 0 14px rgba(56,247,255,0.22);
+  animation: bubbleUp 1.8s linear infinite;
+}
+@keyframes bubbleUp{
+  from{ transform: translateY(0) scale(0.8); opacity: .0; }
+  10%{ opacity: .7; }
+  to{ transform: translateY(-120vh) scale(1.25); opacity: 0; }
+}
+
+/* ============ ON (ANIMATION SEQUENCE) ============ */
+.gate-overlay.on .gate-seal{
+  animation: sealIn 480ms ease-out forwards;
+}
+@keyframes sealIn{
+  from{ opacity: 0; transform: translate(-50%,-50%) scale(0.85); }
+  to{ opacity: 1; transform: translate(-50%,-50%) scale(1); }
+}
+
+.gate-overlay.on .gate-beam{
+  animation: beamIn 700ms 260ms ease-out forwards;
+}
+@keyframes beamIn{
+  from{ opacity: 0; filter: blur(3px); }
+  to{ opacity: 1; filter: blur(0px); }
+}
+
+/* Doors open */
+.gate-overlay.open .door.left{
+  animation: doorLeft 920ms cubic-bezier(.2,.9,.2,1) forwards;
+}
+.gate-overlay.open .door.right{
+  animation: doorRight 920ms cubic-bezier(.2,.9,.2,1) forwards;
+}
+@keyframes doorLeft{
+  from{ transform: translateX(0); }
+  to{ transform: translateX(-105%); }
+}
+@keyframes doorRight{
+  from{ transform: translateX(0); }
+  to{ transform: translateX(105%); }
+}
+
+/* Fade seal as doors open */
+.gate-overlay.open .gate-seal{
+  animation: sealFade 700ms ease-out forwards;
+}
+@keyframes sealFade{
+  from{ opacity: 1; }
+  to{ opacity: 0; transform: translate(-50%,-50%) scale(1.1); }
+}
+
+/* Bubbles appear */
+.gate-overlay.on .gate-bubbles{
+  animation: bubblesIn 500ms ease-out forwards;
+}
+@keyframes bubblesIn{ from{opacity:0} to{opacity:1} }
+
+/* Small status text */
+.gate-status{
+  position:absolute;
+  left:50%;
+  bottom: 34px;
+  transform: translateX(-50%);
+  font-family:'Share Tech Mono', monospace;
+  letter-spacing: .14em;
+  font-size: 0.92rem;
+  color: rgba(230,250,255,0.86);
+  text-shadow: 0 0 12px rgba(56,247,255,0.18);
+  opacity: 0;
+}
+.gate-overlay.on .gate-status{
+  animation: statusIn 420ms 260ms ease-out forwards;
+}
+@keyframes statusIn{ from{opacity:0; transform:translateX(-50%) translateY(6px)} to{opacity:1; transform:translateX(-50%) translateY(0)} }
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce){
+  .caustics, .rune-ring, .gate-fog, .b{ animation: none !important; }
+  .gate-overlay.open .door.left,
+  .gate-overlay.open .door.right{ animation: none !important; transform: translateX(0) !important; }
 }
 </style>
 </head>
@@ -407,7 +563,7 @@ body{
 <!-- ===== VIDEO BACKGROUND ===== -->
 <div class="video-bg">
   <video autoplay muted loop playsinline preload="auto">
-    <source src="assets/atlantisnew.mp4" type="video/mp4">
+    <source src="assets/atlantis.mp4" type="video/mp4">
   </video>
 </div>
 <div class="video-overlay"></div>
@@ -415,49 +571,35 @@ body{
 
 <!-- ===== LOGIN CARD ===== -->
 <div class="w-full max-w-md p-8 rounded-2xl card z-10">
-
   <div id="crest" class="crest">
     <div class="portal"></div>
     <div class="rune-ring"></div>
     <div class="glyph"><span>Ψ</span></div>
 
-    <div class="med p1">
-      <div class="stage">
-        <img src="https://yt3.googleusercontent.com/ytc/AIdro_lowz4PsfRFrMy7KjUjzsglykKd0kgOANY6pjP0WkPuwU8=s900-c-k-c0x00ffffff-no-rj" alt="Logo 1">
-      </div>
-    </div>
+    <div class="med p1"><div class="stage">
+      <img src="https://yt3.googleusercontent.com/ytc/AIdro_lowz4PsfRFrMy7KjUjzsglykKd0kgOANY6pjP0WkPuwU8=s900-c-k-c0x00ffffff-no-rj" alt="Logo 1">
+    </div></div>
 
-    <div class="med p2">
-      <div class="stage">
-        <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRQMQkUOsviqu4KXAgckYrVg1QrqbF6WaQGKw&s" alt="Logo 2">
-      </div>
-    </div>
+    <div class="med p2"><div class="stage">
+      <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRQMQkUOsviqu4KXAgckYrVg1QrqbF6WaQGKw&s" alt="Logo 2">
+    </div></div>
 
-    <div class="med p3">
-      <div class="stage">
-        <img src="https://i.postimg.cc/Xvv3gtGg/Chat-GPT-Image-Dec-24-2025-10-10-02-PM.png" alt="Logo 3">
-      </div>
-    </div>
+    <div class="med p3"><div class="stage">
+      <img src="https://i.postimg.cc/Xvv3gtGg/Chat-GPT-Image-Dec-24-2025-10-10-02-PM.png" alt="Logo 3">
+    </div></div>
 
-    <div class="med p4">
-      <div class="stage">
-        <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRGbRrjY2PCuwNRPLchl5JG7_fRm1R3lhEDxw&s" alt="Logo 4">
-      </div>
-    </div>
+    <div class="med p4"><div class="stage">
+      <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRGbRrjY2PCuwNRPLchl5JG7_fRm1R3lhEDxw&s" alt="Logo 4">
+    </div></div>
   </div>
 
   <h1 class="text-3xl text-center font-bold text-cyan-200 mb-6 tracking-widest">
-    🐚 DEEP CRYPT GATEWAY  
+    ATLANTIS GATEWAY
   </h1>
 
-  <?php if ($error): ?>
-    <div class="mb-4 p-3 text-red-300 border border-red-500 rounded bg-red-950/30">
-      <?= htmlspecialchars($error) ?>
-    </div>
-  <?php endif; ?>
+  <div id="errBox" class="hidden mb-4 p-3 text-red-300 border border-red-500 rounded bg-red-950/30"></div>
 
-  <form id="form" method="POST" action="login_process.php" class="space-y-5">
-
+  <form id="form" class="space-y-5">
     <div>
       <label class="text-cyan-200">Explorer ID</label>
       <input name="username" required placeholder="Enter username"
@@ -483,7 +625,7 @@ body{
   </p>
 </div>
 
-<!-- ===== OUTSIDE HIGHLIGHT CTA (REGISTER YOUR 4-MEMBER ARMY) ===== -->
+<!-- ===== OUTSIDE CTA ===== -->
 <div class="army-cta" aria-label="Register your team">
   <div class="army-cta-inner">
     <div class="army-copy">
@@ -493,15 +635,29 @@ body{
         <div class="sub">Register your army for the CTF.</div>
       </div>
     </div>
-
-    <a class="army-btn" href="register.php">
-      REGISTER ARMY <span class="arrow">→</span>
-    </a>
+    <a class="army-btn" href="register.php">REGISTER ARMY <span class="arrow">→</span></a>
   </div>
 </div>
 
-<!-- ===== CURSOR SPOTLIGHT + LOGO PROXIMITY GLOW ===== -->
+<!-- ===== GRAND GATE OVERLAY ===== -->
+<div id="gate" class="gate-overlay" aria-hidden="true">
+  <div class="gate-fog"></div>
+  <div class="gate-beam"></div>
+
+  <div class="gate-doors">
+    <div class="door left"></div>
+    <div class="door right"></div>
+  </div>
+
+  <div class="gate-seal"><span>Ψ</span></div>
+
+  <div class="gate-bubbles" id="bubbles"></div>
+
+  <div class="gate-status" id="gateStatus">SEAL VERIFIED • OPENING THE GATE…</div>
+</div>
+
 <script>
+/* ===== CURSOR SPOTLIGHT + LOGO PROXIMITY GLOW ===== */
 const crest = document.getElementById('crest');
 const meds  = document.querySelectorAll('.med');
 
@@ -524,34 +680,116 @@ document.addEventListener('mousemove', (e) => {
 });
 </script>
 
-<!-- ===== LOADING BUTTON ===== -->
 <script>
+/* ===== LOGIN + GRAND OPENING ===== */
 const form = document.getElementById("form");
 const btn  = document.getElementById("authBtn");
 const bar  = document.getElementById("progressBar");
 const text = document.getElementById("btnText");
+const errBox = document.getElementById("errBox");
+
+const gate = document.getElementById("gate");
+const bubbles = document.getElementById("bubbles");
+const gateStatus = document.getElementById("gateStatus");
+
 let loading = false;
 
-form.addEventListener("submit", e => {
-  if (loading) return;
+function showError(msg){
+  errBox.textContent = msg;
+  errBox.classList.remove("hidden");
+}
+function clearError(){
+  errBox.textContent = "";
+  errBox.classList.add("hidden");
+}
+
+function spawnBubbles(count = 22){
+  bubbles.innerHTML = "";
+  for(let i=0;i<count;i++){
+    const el = document.createElement("div");
+    el.className = "b";
+    el.style.left = Math.random()*100 + "%";
+    el.style.width = (6 + Math.random()*14) + "px";
+    el.style.height = el.style.width;
+    el.style.animationDuration = (1.2 + Math.random()*1.8) + "s";
+    el.style.animationDelay = (Math.random()*0.6) + "s";
+    bubbles.appendChild(el);
+  }
+}
+
+function resetButton(){
+  loading = false;
+  btn.disabled = false;
+  bar.style.transform = "scaleX(0)";
+  text.textContent = "ENTER THE DEPTHS →";
+}
+
+async function grandOpenAndGo(url){
+  // turn overlay on
+  gate.classList.add("on");
+  spawnBubbles(26);
+
+  // tiny dramatic beat
+  await new Promise(r => setTimeout(r, 520));
+
+  // open doors
+  gate.classList.add("open");
+
+  // another beat, then navigate
+  await new Promise(r => setTimeout(r, 880));
+  window.location.href = url;
+}
+
+form.addEventListener("submit", async (e) => {
   e.preventDefault();
+  if (loading) return;
   loading = true;
+  clearError();
 
   btn.disabled = true;
-  text.textContent = "DESCENDING…";
+  text.textContent = "VERIFYING SEAL…";
 
+  // nice progress feel while waiting (visual only)
   let p = 0;
-  const i = setInterval(() => {
-    p += Math.random() * 12;
-    if (p >= 100) {
-      p = 100;
-      bar.style.transform = "scaleX(1)";
-      clearInterval(i);
-      setTimeout(() => form.submit(), 300);
-    } else {
-      bar.style.transform = `scaleX(${p/100})`;
+  const tick = setInterval(() => {
+    p = Math.min(92, p + Math.random()*9);
+    bar.style.transform = `scaleX(${p/100})`;
+  }, 110);
+
+  try{
+    const fd = new FormData(form);
+    const res = await fetch("login_process.php", {
+      method: "POST",
+      body: fd,
+      headers: { "X-Requested-With": "fetch" }
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    clearInterval(tick);
+
+    if (!res.ok || !data.ok){
+      bar.style.transform = "scaleX(0)";
+      resetButton();
+      showError(data.message || "Login failed.");
+      return;
     }
-  }, 120);
+
+    // success: fill bar, then epic opening
+    text.textContent = "SEAL VERIFIED…";
+    bar.style.transform = "scaleX(1)";
+
+    // optionally customize status
+    gateStatus.textContent = "SEAL VERIFIED • OPENING THE GATE…";
+
+    await new Promise(r => setTimeout(r, 220));
+    await grandOpenAndGo(data.redirect);
+
+  } catch(err){
+    clearInterval(tick);
+    resetButton();
+    showError("Network error. Please try again.");
+  }
 });
 </script>
 
