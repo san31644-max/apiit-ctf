@@ -407,7 +407,7 @@ body{
 <!-- ===== VIDEO BACKGROUND ===== -->
 <div class="video-bg">
   <video autoplay muted loop playsinline preload="auto">
-    <source src="assets/atlantis.mp4" type="video/mp4">
+    <source src="assets/atlantisnew.mp4" type="video/mp4">
   </video>
 </div>
 <div class="video-overlay"></div>
