@@ -8,6 +8,7 @@ $pdo->exec("SET time_zone = '+05:30'");
 
 header('Content-Type: application/json; charset=utf-8');
 
+
 if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'admin') {
   http_response_code(403);
   echo json_encode(['ok' => false, 'error' => 'forbidden']);
