@@ -134,7 +134,7 @@ Powered by <span class="text-yellow-300 font-bold">DataEntry Pro</span>
 
 <p class="text-center mt-4">
 <a href="register.php" class="text-cyan-300 hover:underline">
-Apply as a Freelancer
+
 </a>
 </p>
 
