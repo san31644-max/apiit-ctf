@@ -1,7 +1,7 @@
 <?php
 session_start();
 
-// Redirect if not logged in as user
+// Redirect if not logged in as 'user'
 if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'user') {
     header("Location: ../index.php");
     exit;
@@ -9,6 +9,7 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'user') {
 
 $username = $_SESSION['username'] ?? 'Player';
 $lastUpdated = date('Y-m-d H:i:s');
+$pdfLink = "https://drive.google.com/uc?export=download&id=1hVO9vOQP3dl30HAkS2X0vK9UqPIIsimp"; // direct download link
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -42,8 +43,9 @@ table{width:100%; border-collapse:collapse;}
 th,td{border:1px solid rgba(56,247,255,0.3); padding:8px; text-align:center;}
 th{background: rgba(56,247,255,0.1);}
 input{width:100%; background:transparent; border:none; color: var(--text); padding:4px;}
-button,a{cursor:pointer;}
-a{text-decoration:none;}
+button{cursor:pointer;}
+button:disabled{opacity:0.5; cursor:not-allowed;}
+.locked td{background: rgba(255,255,255,0.05);}
 </style>
 </head>
 <body>
@@ -56,28 +58,24 @@ a{text-decoration:none;}
 <div class="video-overlay"></div>
 
 <div class="shell">
-  <!-- TOP PANEL -->
   <div class="panel flex justify-between items-center">
     <div>
       <div class="h1 text-2xl">WELCOME, <?= htmlspecialchars($username) ?> 🔱</div>
       <div class="small mt-1">Last updated: <?= htmlspecialchars($lastUpdated) ?></div>
     </div>
-    <div class="text-right">
+    <div class="flex gap-2">
       <div class="small">Countdown Timer: <span id="countdown">06:00:00</span></div>
-      <div class="mt-2 flex flex-col gap-2">
-        <a href="../logout.php" class="px-3 py-1 bg-red-600 rounded hover:bg-red-500 text-white text-sm">🚪 Logout</a>
-        <a href="https://drive.google.com/uc?export=download&id=1hVO9vOQP3dl30HAkS2X0vK9UqPIIsimp" 
-           class="px-3 py-1 bg-yellow-500 rounded hover:bg-yellow-400 text-black text-sm">📄 Download PDF</a>
-      </div>
+      <button onclick="logout()" class="px-3 py-1 bg-red-600 rounded hover:bg-red-500">🚪 Logout</button>
     </div>
   </div>
 
-  <!-- DATA ENTRY PANEL -->
   <div class="panel">
     <div class="h1 text-xl mb-3">📝 Data Entry Sheet</div>
-    <div class="flex justify-between mb-3">
-      <button onclick="addRow()" class="px-4 py-2 bg-teal-500 rounded hover:bg-teal-400">➕ Add Row</button>
-      <button onclick="exportCSV()" class="px-4 py-2 bg-gold-500 rounded hover:bg-yellow-400 text-black">💾 Export CSV</button>
+    <div class="flex justify-between mb-3 gap-2 flex-wrap">
+      <button id="addBtn" onclick="addRow()" class="px-4 py-2 bg-teal-500 rounded hover:bg-teal-400">➕ Add Row</button>
+      <button id="exportBtn" onclick="exportCSV()" class="px-4 py-2 bg-gold-500 rounded hover:bg-yellow-400">💾 Export CSV</button>
+      <button id="pdfBtn" onclick="downloadPDF()" class="px-4 py-2 bg-blue-500 rounded hover:bg-blue-400">📄 Download PDF</button>
+      <button id="lockBtn" onclick="lockSheet()" class="px-4 py-2 bg-green-600 rounded hover:bg-green-500">✅ COMPLETED</button>
     </div>
 
     <div class="table-container">
@@ -133,7 +131,6 @@ function addRow(){
 function deleteRow(btn){
   const row = btn.parentNode.parentNode;
   row.parentNode.removeChild(row);
-  // renumber
   const table = document.getElementById('dataSheet').getElementsByTagName('tbody')[0];
   for(let i=0;i<table.rows.length;i++){
     table.rows[i].cells[0].innerText = i+1;
@@ -161,6 +158,11 @@ function exportCSV(){
   URL.revokeObjectURL(url);
 }
 
+// ===== DOWNLOAD PDF =====
+function downloadPDF(){
+  window.open("<?= $pdfLink ?>", "_blank");
+}
+
 // ===== COUNTDOWN 6 HOURS =====
 let countdownSeconds = 6*60*60;
 function updateCountdown(){
@@ -171,6 +173,34 @@ function updateCountdown(){
   if(countdownSeconds>0) countdownSeconds--;
 }
 setInterval(updateCountdown,1000);
+
+// ===== LOCK / COMPLETED =====
+function lockSheet(){
+  const table = document.getElementById('dataSheet');
+
+  // disable contenteditable
+  const tds = table.querySelectorAll('td[contenteditable="true"]');
+  tds.forEach(td => td.setAttribute('contenteditable','false'));
+
+  // disable add row
+  document.getElementById('addBtn').disabled = true;
+
+  // disable delete buttons
+  const delBtns = table.querySelectorAll('button');
+  delBtns.forEach(btn => {
+    if(btn.id !== 'exportBtn' && btn.id !== 'lockBtn' && btn.id !== 'pdfBtn'){
+      btn.disabled = true;
+    }
+  });
+
+  table.classList.add('locked');
+  alert("✅ Data sheet is now LOCKED. You can still export CSV and download PDF.");
+}
+
+// ===== LOGOUT =====
+function logout(){
+  window.location.href = '../logout.php';
+}
 </script>
 
 </body>
