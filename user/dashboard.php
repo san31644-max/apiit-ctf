@@ -9,7 +9,7 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'user') {
 
 $username = $_SESSION['username'] ?? 'Player';
 $lastUpdated = date('Y-m-d H:i:s');
-$pdfLink = "https://drive.google.com/uc?export=download&id=1hVO9vOQP3dl30HAkS2X0vK9UqPIIsimp"; // direct download link
+$pdfLink = "https://drive.google.com/file/d/1jdQbG6JSJDOE6MWOUofHe4B80nHKRQt-/view?usp=drive_link"; // direct download link
 ?>
 <!DOCTYPE html>
 <html lang="en">
