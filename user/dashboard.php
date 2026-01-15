@@ -9,7 +9,7 @@ if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'user') {
 
 $username = $_SESSION['username'] ?? 'Player';
 $lastUpdated = date('Y-m-d H:i:s');
-$pdfLink = "https://drive.google.com/file/d/1jdQbG6JSJDOE6MWOUofHe4B80nHKRQt-/view?usp=drive_link"; // direct download link
+$pdfLink = "https://drive.google.com/file/d/1jvySteT0P-7lceJMd9o0ohYdOy4barCo/view?usp=sharing"; // direct download link
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -64,7 +64,7 @@ button:disabled{opacity:0.5; cursor:not-allowed;}
       <div class="small mt-1">Last updated: <?= htmlspecialchars($lastUpdated) ?></div>
     </div>
     <div class="flex gap-2">
-      <div class="small">Countdown Timer: <span id="countdown">06:00:00</span></div>
+      <div class="small">Countdown Timer: <span id="countdown">05:00:00</span></div>
       <button onclick="logout()" class="px-3 py-1 bg-red-600 rounded hover:bg-red-500">🚪 Logout</button>
     </div>
   </div>
